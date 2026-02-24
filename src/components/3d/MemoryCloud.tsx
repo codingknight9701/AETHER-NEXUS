@@ -1,47 +1,38 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber/native';
-import { Physics } from '@react-three/rapier';
 
-import MemorySphere from './MemorySphere';
-import { useJournalStore } from '../../store/useJournalStore';
+import { buildGraph, GraphNode, GraphLink } from '../../utils/vault';
+import InteractiveGraph from './InteractiveGraph';
 
 interface CloudCanvasProps {
     onSpherePress: (id: string) => void;
+    selectedNodeId?: string | null;
+    onFlightComplete?: (id: string) => void;
 }
 
-export default function CloudCanvas({ onSpherePress }: CloudCanvasProps) {
-    const entries = useJournalStore((state) => state.entries);
+export default function CloudCanvas({ onSpherePress, selectedNodeId, onFlightComplete }: CloudCanvasProps) {
+    const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
 
-    // Distribute initially in a random loose cloud
-    const initialPositions = useMemo(() => {
-        return entries.map(() => [
-            (Math.random() - 0.5) * 10,
-            (Math.random() - 0.5) * 10,
-            (Math.random() - 0.5) * 10
-        ] as [number, number, number]);
-    }, [entries.length]);
+    useEffect(() => {
+        const loadGraph = async () => {
+            const data = await buildGraph();
+            setGraphData(data);
+        };
+        loadGraph();
+    }, []);
 
     return (
-        <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
-            {/* Removed visible={true} as it is true by default */}
+        <Canvas camera={{ position: [0, 0, 150], fov: 45 }}>
             <ambientLight intensity={0.5} />
-
-            {/* Removed castShadow={false} and visible={true} to avoid the Boolean cast error */}
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
-            <color attach="background" args={['#121212']} />
-
-            <Physics gravity={[Number(0), Number(0), Number(0)]}>
-                {entries.map((entry, index) => (
-                    <MemorySphere
-                        key={entry.id}
-                        id={entry.id}
-                        color={entry.color}
-                        position={initialPositions[index]}
-                        onPress={onSpherePress}
-                    />
-                ))}
-            </Physics>
+            <InteractiveGraph
+                nodes={graphData.nodes}
+                links={graphData.links}
+                onNodePress={onSpherePress}
+                selectedNodeId={selectedNodeId}
+                onFlightComplete={onFlightComplete}
+            />
         </Canvas>
     );
 }

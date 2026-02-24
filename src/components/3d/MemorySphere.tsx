@@ -1,61 +1,77 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber/native';
-// import { Sphere } from '@react-three/drei';
-import { RigidBody, RapierRigidBody, BallCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import * as Haptics from 'expo-haptics';
+// import { Text } from '@react-three/drei/native'; // Causes ReferenceError: Property 'document' doesn't exist in React Native
 
 interface MemorySphereProps {
     id: string;
+    label: string;
     color: string;
     position: [number, number, number];
     onPress: (id: string) => void;
 }
 
-export default function MemorySphere({ id, color, position, onPress }: MemorySphereProps) {
-    const rigidBodyRef = useRef<RapierRigidBody>(null);
+export default function MemorySphere({ id, label, color, position, onPress }: MemorySphereProps) {
+    const groupRef = useRef<THREE.Group>(null);
+    const meshRef = useRef<THREE.Mesh>(null);
+    const targetScale = useRef(1);
+    const currentScale = useRef(0); // Start scale at 0 for entrance animation
 
-    // Custom gravity/attractor logic: Pull towards the center (0,0,0)
-    useFrame(() => {
-        if (rigidBodyRef.current) {
-            const pos = rigidBodyRef.current.translation();
-            const currentPos = new THREE.Vector3(pos.x, pos.y, pos.z);
+    // Physics properties for Neo-Noir Zen Anti-Gravity feel
+    const velocityY = useRef(0);
+    const targetY = useRef(position[1]);
+    const inertia = 0.95; // High inertia (keeps moving)
+    const damping = 0.05; // Low damping (slow to stop)
 
-            // Calculate force vector pointing towards origin
-            const forceDirection = currentPos.clone().negate().normalize();
+    // Give each sphere a unique random offset so they don't bob uniformly
+    const randomOffset = useMemo(() => Math.random() * 100, []);
 
-            // Distance from origin determines force strength (closer = weaker pull)
-            const distance = currentPos.length();
-            const pullStrength = distance * 0.5; // Adjust this scale to change cloud tightness
+    useFrame(({ clock, camera }) => {
+        if (groupRef.current && meshRef.current) {
+            // Smooth entrance and tap animations using linear interpolation
+            currentScale.current += (targetScale.current - currentScale.current) * 0.15;
+            groupRef.current.scale.set(currentScale.current, currentScale.current, currentScale.current);
 
-            const appliedForce = forceDirection.multiplyScalar(pullStrength);
+            // Floating Anti-Gravity Physics (Inertia + Damping)
+            const t = clock.getElapsedTime() + randomOffset;
+            const intendedBobbingY = position[1] + Math.sin(t * 0.5) * 0.8; // Slower, wider sine wave
 
-            rigidBodyRef.current.applyImpulse({ x: appliedForce.x, y: appliedForce.y, z: appliedForce.z }, true);
+            // Calculate distance to intended position
+            const accelerationY = (intendedBobbingY - groupRef.current.position.y) * damping;
+
+            // Apply inertia and damping to velocity
+            velocityY.current = (velocityY.current * inertia) + accelerationY;
+
+            // Apply velocity to actual position (simulates heavy, floating weight) applied to the parent group
+            groupRef.current.position.y += velocityY.current;
+
+            // Very slow, deliberate rotation applied ONLY to the sphere mesh, so text stays flat
+            meshRef.current.rotation.x += 0.002;
+            meshRef.current.rotation.y += 0.003;
         }
     });
 
     const handlePointerDown = (e: any) => {
         e.stopPropagation();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // Use Heavy impact to reinforce the feeling of weight and inertia
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-        // Give it a little boop away from camera when touched
-        if (rigidBodyRef.current) {
-            rigidBodyRef.current.applyImpulse({ x: Math.random() - 0.5, y: Math.random() - 0.5, z: -5 }, true);
-        }
+        // Visual feedback on tap
+        targetScale.current = 0.7; // Shrink
+        setTimeout(() => {
+            targetScale.current = 1; // Grow back
+        }, 150);
 
         onPress(id);
     };
 
     return (
-        <RigidBody
-            ref={rigidBodyRef}
-            position={position}
-            restitution={0.8} // Bounciness
-            linearDamping={1.5} // Drag to prevent infinite flying
-            angularDamping={1.5}
-        >
-            <BallCollider args={[1]} />
-            <mesh onPointerDown={handlePointerDown}>
+        <group ref={groupRef} position={position}>
+            <mesh
+                ref={meshRef}
+                onPointerDown={handlePointerDown}
+            >
                 <sphereGeometry args={[1, 32, 32]} />
                 <meshPhysicalMaterial
                     color={color}
@@ -67,6 +83,21 @@ export default function MemorySphere({ id, color, position, onPress }: MemorySph
                     thickness={0.5}
                 />
             </mesh>
-        </RigidBody>
+
+            {/* 3D Text is not supported out of the box in React Native Three.js without DOM. */}
+            {/* 
+            <Text
+                position={[0, 1.5, 0]}
+                fontSize={0.4}
+                color="#00ffcc"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={0.02}
+                outlineColor="#000000"
+            >
+                {label}
+            </Text>
+            */}
+        </group>
     );
 }

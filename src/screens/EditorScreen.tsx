@@ -1,71 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, KeyboardAvoidingView, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useJournalStore } from '../store/useJournalStore';
-import { analyzeSentiment, getSentimentColor } from '../utils/sentiment';
 import * as Haptics from 'expo-haptics';
+import { playSaveChime } from '../utils/audio';
+import { saveThought, readThought } from '../utils/vault';
 
 export default function EditorScreen() {
+    const [title, setTitle] = useState('');
     const [text, setText] = useState('');
-    const navigation = useNavigation();
-    const addEntry = useJournalStore((state) => state.addEntry);
+    const [showSaved, setShowSaved] = useState(false);
+    const goBack = useJournalStore((state) => state.goBack);
+    const currentRoute = useJournalStore((state) => state.currentRoute);
+    const idToEdit = currentRoute.params?.id;
+    const prefillTitle = currentRoute.params?.prefillTitle;
+    const insets = useSafeAreaInsets();
 
-    const handleSave = () => {
-        if (!text.trim()) return;
+    useEffect(() => {
+        if (idToEdit) {
+            readThought(idToEdit).then((data) => {
+                if (data) {
+                    setTitle(data.title);
+                    setText(data.content);
+                }
+            });
+        } else if (prefillTitle) {
+            setTitle(prefillTitle);
+        }
+    }, [idToEdit, prefillTitle]);
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const handleSave = async () => {
+        if (!text.trim() || !title.trim()) return;
 
-        // Core NLP Logic processing
-        const score = analyzeSentiment(text);
-        const color = getSentimentColor(score);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 150);
+        playSaveChime();
 
-        addEntry(text, score, color);
+        await saveThought(title, text);
 
-        navigation.goBack();
+        setShowSaved(true);
+        setTimeout(() => {
+            setShowSaved(false);
+            goBack();
+        }, 1000);
     };
 
     return (
-        <KeyboardAvoidingView
+        <LinearGradient
+            colors={['#151833', '#0a0b1a']}
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-                    <Text style={styles.headerBtnText}>Close</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={handleSave}
-                    style={[styles.headerBtn, !text.trim() && styles.disabledBtn]}
-                    disabled={!text.trim()}
-                >
-                    <Text style={[styles.headerBtnText, styles.saveText]}>Save</Text>
-                </TouchableOpacity>
-            </View>
+            <KeyboardAvoidingView
+                style={styles.keyboardView}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+                    <TouchableOpacity onPress={goBack} style={styles.headerBtn}>
+                        <Text style={styles.headerBtnText}>Close</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        style={[styles.headerBtn, (!text.trim() || !title.trim()) && styles.disabledBtn]}
+                        disabled={!text.trim() || !title.trim() || showSaved}
+                    >
+                        <Text style={[styles.headerBtnText, styles.saveText]}>Save to Vault</Text>
+                    </TouchableOpacity>
+                </View>
 
-            <TextInput
-                style={styles.input}
-                placeholder="What's on your mind?"
-                placeholderTextColor="#666"
-                multiline
-                autoFocus
-                value={text}
-                onChangeText={setText}
-                textAlignVertical="top"
-            />
-        </KeyboardAvoidingView>
+                {showSaved && (
+                    <View style={[styles.toastContainer, { top: insets.top + 60 }]}>
+                        <Text style={styles.toastText}>✓ Saved to Vault</Text>
+                    </View>
+                )}
+
+                <TextInput
+                    style={styles.titleInput}
+                    placeholder="Thought Title..."
+                    placeholderTextColor="rgba(0,255,204,0.4)"
+                    value={title}
+                    onChangeText={setTitle}
+                    autoCapitalize="words"
+                />
+                <Text style={styles.helperText}>Syntax:  [[Exact Title Name]]  to link</Text>
+
+                <TextInput
+                    style={styles.input}
+                    placeholder="Start typing your thought... use [[links]] to connect concepts."
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    multiline
+                    autoFocus
+                    value={text}
+                    onChangeText={setText}
+                    textAlignVertical="top"
+                />
+            </KeyboardAvoidingView>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+    },
+    keyboardView: {
+        flex: 1,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
         paddingBottom: 20,
     },
     headerBtn: {
@@ -86,9 +130,41 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         color: '#fff',
-        fontSize: 24,
-        lineHeight: 34,
+        fontSize: 20,
+        lineHeight: 30,
         paddingHorizontal: 24,
         fontWeight: '300',
     },
+    titleInput: {
+        color: '#00ffcc',
+        fontSize: 32,
+        fontWeight: 'bold',
+        paddingHorizontal: 24,
+        marginBottom: 5,
+    },
+    helperText: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontSize: 14,
+        paddingHorizontal: 24,
+        marginBottom: 20,
+    },
+    toastContainer: {
+        position: 'absolute',
+        alignSelf: 'center',
+        backgroundColor: '#00ffcc',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        zIndex: 100,
+        shadowColor: '#00ffcc',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    toastText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 16,
+    }
 });

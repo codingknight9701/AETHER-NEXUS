@@ -1,87 +1,91 @@
-import React from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useJournalStore } from '../store/useJournalStore';
+import { readThought } from '../utils/vault';
 import { Canvas } from '@react-three/fiber/native';
 import MoodLandscape from '../components/3d/MoodLandscape';
 
-type RootStackParamList = {
-    Home: undefined;
-    Editor: undefined;
-    Review: { id: string };
-};
-
-type ReviewScreenRouteProp = {
-    key: string;
-    name: 'Review';
-    params: { id: string };
-};
-
 export default function ReviewScreen() {
-    const route = useRoute<ReviewScreenRouteProp>();
-    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const entryId = route.params.id;
+    const currentRoute = useJournalStore((state) => state.currentRoute);
+    const goBack = useJournalStore((state) => state.goBack);
+    const entryId = currentRoute.params?.id; // e.g. "neo-noir.md"
+    const insets = useSafeAreaInsets();
 
-    const entry = useJournalStore((state) =>
-        state.entries.find((e) => e.id === entryId)
-    );
+    const [thought, setThought] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
-    if (!entry) {
+    useEffect(() => {
+        const load = async () => {
+            if (entryId) {
+                const data = await readThought(entryId);
+                setThought(data);
+            }
+            setLoading(false);
+        };
+        load();
+    }, [entryId]);
+
+    if (loading) return null;
+
+    if (!thought) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.errorText}>Memory not found.</Text>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <LinearGradient colors={['#151833', '#0a0b1a']} style={styles.container}>
+                <Text style={styles.errorText}>Thought not found in Vault.</Text>
+                <TouchableOpacity onPress={goBack} style={[styles.backBtn, { paddingTop: Math.max(insets.top, 20) }]}>
                     <Text style={styles.backBtnText}>Return</Text>
                 </TouchableOpacity>
-            </View>
+            </LinearGradient>
         );
     }
 
-    const dateStr = new Date(entry.timestamp).toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric'
-    });
-
     return (
-        <View style={styles.container}>
-            {/* Background 3D Landscape */}
-            <View style={StyleSheet.absoluteFill}>
-                <Canvas camera={{ position: [0, 5, 5], fov: 60 }}>
-                    <ambientLight intensity={0.8} />
-                    <directionalLight position={[10, 10, 5]} intensity={1.5} />
-                    <MoodLandscape sentimentScore={entry.sentimentScore} />
-                </Canvas>
-            </View>
-
+        <LinearGradient colors={['#08080C', '#120f18', '#000000']} style={styles.container}>
             {/* UI Overlay */}
-            <SafeAreaView style={styles.safeArea}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Text style={styles.backBtnText}>← Back to Cloud</Text>
-                </TouchableOpacity>
+            <View style={[styles.safeArea, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 20 }}>
+                    <TouchableOpacity onPress={goBack} style={styles.backBtn}>
+                        <Text style={styles.backBtnText}>← Back to Nexus</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => useJournalStore.getState().navigate('Editor', { id: thought.id })} style={styles.backBtn}>
+                        <Text style={styles.backBtnText}>Edit ✎</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.titleText}>{thought.title}</Text>
+
                     <View style={styles.glassCard}>
-                        <Text style={styles.dateText}>{dateStr}</Text>
-                        <Text style={styles.journalText}>{entry.text}</Text>
+                        <Text style={styles.journalText}>{thought.content}</Text>
                     </View>
+
+                    {thought.links && thought.links.length > 0 && (
+                        <View style={styles.linksContainer}>
+                            <Text style={styles.linksHeader}>References:</Text>
+                            {thought.links.map((link: string, i: number) => (
+                                <View key={`link-${i}`} style={styles.linkBadge}>
+                                    <Text style={styles.linkBadgeText}>{link}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
                 </ScrollView>
-            </SafeAreaView>
-        </View>
+            </View>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000',
     },
     safeArea: {
         flex: 1,
     },
     backBtn: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
         alignSelf: 'flex-start',
     },
     backBtnText: {
@@ -95,7 +99,7 @@ const styles = StyleSheet.create({
         paddingBottom: 60,
     },
     glassCard: {
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: 20,
         padding: 24,
         marginTop: 20,
@@ -109,6 +113,12 @@ const styles = StyleSheet.create({
         letterSpacing: 1.5,
         marginBottom: 16,
     },
+    titleText: {
+        color: '#00ffcc',
+        fontSize: 32,
+        fontWeight: 'bold',
+        marginBottom: 20,
+    },
     journalText: {
         color: '#fff',
         fontSize: 22,
@@ -120,5 +130,31 @@ const styles = StyleSheet.create({
         fontSize: 18,
         textAlign: 'center',
         marginTop: 100,
+    },
+    linksContainer: {
+        marginTop: 30,
+        paddingHorizontal: 10,
+    },
+    linksHeader: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 14,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        marginBottom: 12,
+    },
+    linkBadge: {
+        backgroundColor: 'rgba(0, 255, 204, 0.1)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 255, 204, 0.3)',
+        marginBottom: 10,
+        alignSelf: 'flex-start',
+    },
+    linkBadgeText: {
+        color: '#00ffcc',
+        fontSize: 16,
+        fontWeight: '600',
     }
 });

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface JournalEntry {
   id: string;
@@ -12,25 +14,40 @@ interface JournalState {
   entries: JournalEntry[];
   addEntry: (text: string, sentimentScore: number, color: string) => void;
   removeEntry: (id: string) => void;
+  currentRoute: { name: string; params?: any };
+  navigate: (name: string, params?: any) => void;
+  goBack: () => void;
 }
 
-export const useJournalStore = create<JournalState>((set) => ({
-  entries: [],
-  addEntry: (text, sentimentScore, color) => 
-    set((state) => ({
-      entries: [
-        ...state.entries,
-        {
-          id: Math.random().toString(36).substring(7),
-          text,
-          timestamp: Date.now(),
-          sentimentScore,
-          color,
-        },
-      ],
-    })),
-  removeEntry: (id) =>
-    set((state) => ({
-      entries: state.entries.filter((entry) => entry.id !== id),
-    })),
-}));
+export const useJournalStore = create<JournalState>()(
+  persist(
+    (set) => ({
+      entries: [],
+      addEntry: (text, sentimentScore, color) =>
+        set((state) => ({
+          entries: [
+            ...state.entries,
+            {
+              id: Math.random().toString(36).substring(7),
+              text,
+              timestamp: Date.now(),
+              sentimentScore,
+              color,
+            },
+          ],
+        })),
+      removeEntry: (id) =>
+        set((state) => ({
+          entries: state.entries.filter((entry) => entry.id !== id),
+        })),
+      currentRoute: { name: 'Home' },
+      navigate: (name, params) => set({ currentRoute: { name, params } }),
+      goBack: () => set({ currentRoute: { name: 'Home' } }),
+    }),
+    {
+      name: 'journal-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ entries: state.entries }), // Only persist entries, avoid persisting currentRoute
+    }
+  )
+);

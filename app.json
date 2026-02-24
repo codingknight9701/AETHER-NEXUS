@@ -21,10 +21,23 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.moaz_ahmed9701.aether"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-audio"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "056a929c-d4d3-4466-b738-9ca79620c6b9"
+      }
     }
   }
 }
