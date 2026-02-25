@@ -1,7 +1,7 @@
 {
   "name": "aether",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "node_modules/expo/AppEntry.js",
   "homepage": "https://codingknight9701.github.io/AETHER-NEXUS",
   "scripts": {
     "predeploy": "expo export -p web",
