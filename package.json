@@ -2,7 +2,10 @@
   "name": "aether",
   "version": "1.0.0",
   "main": "index.ts",
+  "homepage": "https://codingknight9701.github.io/AETHER-NEXUS",
   "scripts": {
+    "predeploy": "expo export -p web",
+    "deploy": "gh-pages -d dist -t",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

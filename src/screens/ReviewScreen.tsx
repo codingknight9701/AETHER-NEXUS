@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useJournalStore } from '../store/useJournalStore';
 import { readThought } from '../utils/vault';
-import { Canvas } from '@react-three/fiber/native';
+import { Canvas } from '@react-three/fiber';
 import MoodLandscape from '../components/3d/MoodLandscape';
 
 export default function ReviewScreen() {

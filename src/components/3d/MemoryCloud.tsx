@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber/native';
+import { Canvas } from '@react-three/fiber';
 
 import { buildGraph, GraphNode, GraphLink } from '../../utils/vault';
 import InteractiveGraph from './InteractiveGraph';
