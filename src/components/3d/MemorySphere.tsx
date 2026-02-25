@@ -9,10 +9,11 @@ interface MemorySphereProps {
     label: string;
     color: string;
     position: [number, number, number];
+    frequency?: number;
     onPress: (id: string) => void;
 }
 
-export default function MemorySphere({ id, label, color, position, onPress }: MemorySphereProps) {
+export default function MemorySphere({ id, label, color, position, frequency = 1, onPress }: MemorySphereProps) {
     const groupRef = useRef<THREE.Group>(null);
     const meshRef = useRef<THREE.Mesh>(null);
     const targetScale = useRef(1);
@@ -72,7 +73,8 @@ export default function MemorySphere({ id, label, color, position, onPress }: Me
                 ref={meshRef}
                 onPointerDown={handlePointerDown}
             >
-                <sphereGeometry args={[1, 32, 32]} />
+                {/* Base scale is 1, add 0.2 for each additional occurrence of the tag */}
+                <sphereGeometry args={[1 + (frequency - 1) * 0.2, 32, 32]} />
                 <meshPhysicalMaterial
                     color={color}
                     transmission={0.9}

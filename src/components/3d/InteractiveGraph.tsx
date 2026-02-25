@@ -127,6 +127,7 @@ export default function InteractiveGraph({ nodes, links, onNodePress, selectedNo
                     label={node.label}
                     color="#00ffcc" // Cyberpunk/Neo-Noir Cyan
                     position={positionsRef.current.get(node.id) || [0, 0, 0]}
+                    frequency={node.frequency}
                     onPress={onNodePress}
                 />
             ))}

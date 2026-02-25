@@ -1,13 +1,36 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
-const VAULT_DIR = `${FileSystem.documentDirectory}AetherVault/`;
-const THOUGHTS_DIR = `${VAULT_DIR}thoughts/`;
+const VAULT_DIR = Platform.OS === 'web' ? '' : `${FileSystem.documentDirectory}AetherVault/`;
+const THOUGHTS_DIR = Platform.OS === 'web' ? '' : `${VAULT_DIR}thoughts/`;
+
+const WEB_STORAGE_KEY = 'aether_thoughts_web';
+
+// Helper to get web data
+const getWebData = (): Record<string, string> => {
+    try {
+        const data = localStorage.getItem(WEB_STORAGE_KEY);
+        return data ? JSON.parse(data) : {};
+    } catch {
+        return {};
+    }
+};
+
+const saveWebData = (data: Record<string, string>) => {
+    try {
+        localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn('LocalStorage error', e);
+    }
+};
 
 export interface GraphNode {
-    id: string;
-    label: string;
-    content: string;
+    id: string; // The tag name or note id
+    label: string; // The tag name
+    content: string; // Not strictly used for tags, but we'll keep for backward comp or use as list of notes
     backlinks: string[];
+    frequency?: number; // Count of notes with this tag
+    type?: 'tag' | 'note';
 }
 
 export interface GraphLink {
@@ -16,6 +39,14 @@ export interface GraphLink {
 }
 
 export const initVault = async () => {
+    if (Platform.OS === 'web') {
+        const data = getWebData();
+        if (Object.keys(data).length === 0) {
+            await seedVault();
+        }
+        return;
+    }
+
     const dirInfo = await FileSystem.getInfoAsync(THOUGHTS_DIR);
     if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(THOUGHTS_DIR, { intermediates: true });
@@ -24,6 +55,12 @@ export const initVault = async () => {
 };
 
 export const resetVault = async () => {
+    if (Platform.OS === 'web') {
+        localStorage.removeItem(WEB_STORAGE_KEY);
+        await initVault();
+        return;
+    }
+
     const dirInfo = await FileSystem.getInfoAsync(VAULT_DIR);
     if (dirInfo.exists) {
         await FileSystem.deleteAsync(VAULT_DIR, { idempotent: true });
@@ -39,6 +76,14 @@ const seedVault = async () => {
 
 export const saveThought = async (title: string, markdownContent: string) => {
     const filename = `${title.replace(/\s+/g, '-').toLowerCase()}.md`;
+
+    if (Platform.OS === 'web') {
+        const data = getWebData();
+        data[filename] = markdownContent;
+        saveWebData(data);
+        return filename;
+    }
+
     const uri = `${THOUGHTS_DIR}${filename}`;
     await FileSystem.writeAsStringAsync(uri, markdownContent);
     return filename;
@@ -59,7 +104,18 @@ export const parseLinks = (content: string): string[] => {
 
 export const readThought = async (id: string) => {
     try {
-        const content = await FileSystem.readAsStringAsync(`${THOUGHTS_DIR}${id}`);
+        let content = '';
+        if (Platform.OS === 'web') {
+            const data = getWebData();
+            if (data[id]) {
+                content = data[id];
+            } else {
+                return null;
+            }
+        } else {
+            content = await FileSystem.readAsStringAsync(`${THOUGHTS_DIR}${id}`);
+        }
+
         // Simple title extraction
         const title = id.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
@@ -73,6 +129,18 @@ export const readThought = async (id: string) => {
 };
 
 export const readAllThoughts = async () => {
+    if (Platform.OS === 'web') {
+        const data = getWebData();
+        return Object.keys(data).map(filename => {
+            const title = filename.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            return {
+                id: filename,
+                title,
+                content: data[filename]
+            };
+        });
+    }
+
     const files = await FileSystem.readDirectoryAsync(THOUGHTS_DIR);
     const mdFiles = files.filter(f => f.endsWith('.md'));
 
@@ -91,33 +159,56 @@ export const readAllThoughts = async () => {
     return thoughts;
 };
 
+// Helper to extract tags
+export const extractTags = (content: string): string[] => {
+    const rootMatches = content.match(/#[\w-]+/g) || [];
+    return Array.from(new Set(rootMatches.map(tag => tag.substring(1))));
+};
+
 export const buildGraph = async () => {
     const files = await readAllThoughts();
     const nodes: Record<string, GraphNode> = {};
     const links: GraphLink[] = [];
+    const linkSet = new Set<string>();
 
-    // First pass: Create nodes
     files.forEach(file => {
-        nodes[file.id] = {
-            id: file.id,
-            label: file.title,
-            content: file.content,
-            backlinks: []
-        };
-    });
+        const tags = extractTags(file.content);
 
-    // Second pass: Create links and populate backlinks
-    files.forEach(file => {
-        const outgoingLinks = parseLinks(file.content);
-        outgoingLinks.forEach(targetTitle => {
-            const targetId = `${targetTitle.replace(/\s+/g, '-').toLowerCase()}.md`;
+        // If a file has no tags, maybe categorize it as #untagged
+        if (tags.length === 0) {
+            tags.push('untagged');
+        }
 
-            // Only link if the target exists
-            if (nodes[targetId]) {
-                links.push({ source: file.id, target: targetId });
-                nodes[targetId].backlinks.push(file.id);
+        tags.forEach(tag => {
+            if (!nodes[tag]) {
+                nodes[tag] = {
+                    id: tag,
+                    label: `#${tag}`,
+                    content: '',
+                    backlinks: [],
+                    frequency: 0,
+                    type: 'tag'
+                };
             }
+            nodes[tag].frequency! += 1;
         });
+
+        // Create links between co-occurring tags in the same note
+        for (let i = 0; i < tags.length; i++) {
+            for (let j = i + 1; j < tags.length; j++) {
+                const source = tags[i];
+                const target = tags[j];
+                const linkId = [source, target].sort().join('-');
+
+                if (!linkSet.has(linkId)) {
+                    links.push({ source, target });
+                    linkSet.add(linkId);
+
+                    nodes[target].backlinks.push(source);
+                    nodes[source].backlinks.push(target);
+                }
+            }
+        }
     });
 
     return { nodes: Object.values(nodes), links };

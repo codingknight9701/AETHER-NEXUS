@@ -1,9 +1,32 @@
-import React, { useEffect } from 'react';
-import { View, StatusBar, StyleSheet, Animated, LogBox } from 'react-native';
+import React, { useEffect, useState, ErrorInfo } from 'react';
+import { View, StatusBar, StyleSheet, Animated, LogBox, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useJournalStore } from './src/store/useJournalStore';
 import { initAudio, playBackgroundMusic } from './src/utils/audio';
 import { initVault } from './src/utils/vault';
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: 'red', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Something went wrong.</Text>
+          <Text style={{ color: 'white', marginTop: 10 }}>{this.state.error?.message}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Ignore harmless R3F/Three.js ecosystem warnings manually
 // LogBox doesn't always catch deep WebGL warnings on native
@@ -37,9 +60,10 @@ LogBox.ignoreLogs([
 import HomeScreen from './src/screens/HomeScreen';
 import EditorScreen from './src/screens/EditorScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
+import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
-  const currentRoute = useJournalStore((state) => state.currentRoute);
+  const { currentRoute, isLocked } = useJournalStore();
 
   useEffect(() => {
     const setupApp = async () => {
@@ -51,6 +75,10 @@ export default function App() {
   }, []);
 
   const renderScreen = () => {
+    if (isLocked) {
+      return <LoginScreen />;
+    }
+
     switch (currentRoute.name) {
       case 'Home':
         return <HomeScreen />;
@@ -67,7 +95,9 @@ export default function App() {
     <SafeAreaProvider>
       <View style={styles.container}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        {renderScreen()}
+        <ErrorBoundary>
+          {renderScreen()}
+        </ErrorBoundary>
       </View>
     </SafeAreaProvider>
   );

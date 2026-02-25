@@ -17,6 +17,11 @@ interface JournalState {
   currentRoute: { name: string; params?: any };
   navigate: (name: string, params?: any) => void;
   goBack: () => void;
+  hashedPin: string | null;
+  isLocked: boolean;
+  setHashedPin: (pin: string) => void;
+  unlock: () => void;
+  lock: () => void;
 }
 
 export const useJournalStore = create<JournalState>()(
@@ -43,11 +48,16 @@ export const useJournalStore = create<JournalState>()(
       currentRoute: { name: 'Home' },
       navigate: (name, params) => set({ currentRoute: { name, params } }),
       goBack: () => set({ currentRoute: { name: 'Home' } }),
+      hashedPin: null,
+      isLocked: true,
+      setHashedPin: (hashedPin) => set({ hashedPin, isLocked: false }),
+      unlock: () => set({ isLocked: false }),
+      lock: () => set({ isLocked: true }),
     }),
     {
       name: 'journal-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ entries: state.entries }), // Only persist entries, avoid persisting currentRoute
+      partialize: (state) => ({ entries: state.entries, hashedPin: state.hashedPin }), // Persist entries and PIN
     }
   )
 );
