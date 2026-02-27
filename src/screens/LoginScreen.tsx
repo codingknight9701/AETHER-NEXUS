@@ -194,7 +194,15 @@ export default function LoginScreen() {
                     return (
                         <TouchableOpacity
                             key={keyIndex}
-                            style={[styles.keypadButton, isEmptyOrDisabledBio ? styles.keypadButtonEmpty : null]}
+                            style={[
+                                styles.keypadButton,
+                                {
+                                    backgroundColor: theme.cardBg,
+                                    borderColor: theme.accentDim,
+                                    shadowColor: theme.accent,
+                                },
+                                isEmptyOrDisabledBio ? styles.keypadButtonEmpty : null
+                            ]}
                             onPress={() => {
                                 if (key === '⌫') handleDelete();
                                 else if (key === '👤') {
@@ -205,7 +213,9 @@ export default function LoginScreen() {
                             disabled={isEmptyOrDisabledBio}
                             activeOpacity={0.6}
                         >
-                            <Text style={styles.keypadButtonText}>{isEmptyOrDisabledBio ? '' : key}</Text>
+                            <Text style={[styles.keypadButtonText, { color: theme.textPrimary }]}>
+                                {isEmptyOrDisabledBio ? '' : key}
+                            </Text>
                         </TouchableOpacity>
                     );
                 })}
@@ -351,12 +361,9 @@ const styles = StyleSheet.create({
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: '#1C2333',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(125,95,255,0.4)',
-        shadowColor: '#7D5FFF',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 6,
@@ -365,10 +372,11 @@ const styles = StyleSheet.create({
     keypadButtonEmpty: {
         backgroundColor: 'transparent',
         borderColor: 'transparent',
+        shadowOpacity: 0,
+        elevation: 0,
     },
     keypadButtonText: {
         fontSize: 28,
-        color: '#ffffff',
         fontWeight: '400',
     },
     googleSection: {
