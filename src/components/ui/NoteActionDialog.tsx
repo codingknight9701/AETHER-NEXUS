@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 interface NoteActionDialogProps {
@@ -34,24 +33,24 @@ export default function NoteActionDialog({ visible, onClose, onDelete, onArchive
                             <Text style={styles.headerTitle}>Note Actions</Text>
 
                             <TouchableOpacity style={styles.actionRow} onPress={() => handleAction(onCopy)}>
-                                <Ionicons name="copy-outline" size={20} color="#fff" />
+                                <Text style={styles.iconText}>📋</Text>
                                 <Text style={styles.actionText}>Make a Copy</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.actionRow} onPress={() => handleAction(onSend)}>
-                                <Ionicons name="share-outline" size={20} color="#fff" />
+                                <Text style={styles.iconText}>🚀</Text>
                                 <Text style={styles.actionText}>Send Note</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.actionRow} onPress={() => handleAction(onArchive)}>
-                                <Ionicons name="archive-outline" size={20} color="#fff" />
+                                <Text style={styles.iconText}>📦</Text>
                                 <Text style={styles.actionText}>Archive</Text>
                             </TouchableOpacity>
 
                             <View style={styles.divider} />
 
                             <TouchableOpacity style={styles.actionRow} onPress={() => handleAction(onDelete)}>
-                                <Ionicons name="trash-outline" size={20} color="#ff3366" />
+                                <Text style={styles.iconText}>🗑️</Text>
                                 <Text style={[styles.actionText, styles.dangerText]}>Delete Permanently</Text>
                             </TouchableOpacity>
                         </View>
@@ -110,5 +109,10 @@ const styles = StyleSheet.create({
     },
     dangerText: {
         color: '#ff3366',
+    },
+    iconText: {
+        fontSize: 20,
+        width: 28,
+        textAlign: 'center',
     }
 });
