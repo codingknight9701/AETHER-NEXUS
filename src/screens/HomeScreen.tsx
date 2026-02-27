@@ -1,44 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import CloudCanvas from '../components/3d/MemoryCloud';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useJournalStore } from '../store/useJournalStore';
-import CommandPalette from '../components/ui/CommandPalette';
 import NotesList from '../components/ui/NotesList';
-import { buildGraph, GraphNode, readAllThoughts } from '../utils/vault';
+import StarfieldBackground from '../components/ui/StarfieldBackground';
+import SearchBar from '../components/ui/SearchBar';
+import NoteActionDialog from '../components/ui/NoteActionDialog';
+import { buildGraph, GraphNode, readAllThoughts, deleteThought, archiveThought, readThought, saveThought } from '../utils/vault';
 import { exportToNotebookLM } from '../utils/exporter';
 import * as Haptics from 'expo-haptics';
 
 export default function HomeScreen() {
-    const navigate = useJournalStore((state) => state.navigate);
-    const [isPaletteOpen, setPaletteOpen] = useState(false);
-    const [flyingTo, setFlyingTo] = useState<string | null>(null);
-    const [nodes, setNodes] = useState<GraphNode[]>([]);
+    const { navigate, removeEntry, currentRoute } = useJournalStore();
+    const insets = useSafeAreaInsets();
     const [allNotes, setAllNotes] = useState<any[]>([]);
-    const [viewMode, setViewMode] = useState<'cloud' | 'list'>('cloud');
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
     useEffect(() => {
         const loadNodes = async () => {
-            const data = await buildGraph();
-            setNodes(data.nodes);
             const notes = await readAllThoughts();
             setAllNotes(notes);
         };
-        loadNodes();
-    }, [isPaletteOpen]); // Refresh nodes when palette opens
+        if (currentRoute.name === 'Home') {
+            loadNodes();
+        }
+    }, [currentRoute.name]);
 
-    const handleSpherePress = (id: string) => {
-        // In the 3D graph, spheres are tags now. 
-        // In the NotesList, items are notes (handled below).
-        // Let's differentiate based on viewMode.
-        if (viewMode === 'cloud') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedTag(id);
-            setViewMode('list');
-        } else {
-            // In list mode, clicking an item navigates to it
-            navigate('Review', { id });
+    const handleNotePress = (id: string) => {
+        navigate('Review', { id });
+    };
+
+    const handleLongPress = (id: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedNoteId(id);
+    };
+
+    const handleDeletePress = async () => {
+        if (!selectedNoteId) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        removeEntry(selectedNoteId); // Zustand cleanup
+        await deleteThought(selectedNoteId); // Hard file/web cleanup
+        setAllNotes(prev => prev.filter(note => note.id !== selectedNoteId));
+    };
+
+    const handleArchivePress = async () => {
+        if (!selectedNoteId) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        await archiveThought(selectedNoteId);
+        setAllNotes(prev => prev.filter(note => note.id !== selectedNoteId));
+    };
+
+    const handleSendPress = async () => {
+        if (!selectedNoteId) return;
+        const note = await readThought(selectedNoteId);
+        if (note) {
+            try {
+                await Share.share({
+                    message: `${note.title}\n\n${note.content}`,
+                    title: note.title
+                });
+            } catch (error) {
+                console.error("Error sharing note:", error);
+            }
+        }
+    };
+
+    const handleCopyPress = async () => {
+        if (!selectedNoteId) return;
+        const note = await readThought(selectedNoteId);
+        if (note) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const newTitle = `${note.title} (Copy)`;
+            const newId = await saveThought(newTitle, note.content);
+            const newNote = await readThought(newId);
+            if (newNote) {
+                setAllNotes(prev => [newNote, ...prev]);
+            }
         }
     };
 
@@ -46,23 +86,9 @@ export default function HomeScreen() {
         navigate('Editor');
     };
 
-    const handleSelectNode = (id: string) => {
-        // Command palette now also shows tags since it uses `nodes`
-        setFlyingTo(id);
-    };
-
-    const handleFlightComplete = (id: string) => {
-        setFlyingTo(null);
-        setSelectedTag(id);
-        setViewMode('list');
-    };
-
-    const toggleViewMode = () => {
+    const clearFilter = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setViewMode(prev => prev === 'cloud' ? 'list' : 'cloud');
-        if (viewMode === 'list') {
-            setSelectedTag(null); // Clear filter when returning to cloud
-        }
+        setSelectedTag(null);
     };
 
     const handleExport = async () => {
@@ -72,28 +98,34 @@ export default function HomeScreen() {
 
     return (
         <LinearGradient
-            colors={['#08080C', '#120f18', '#000000']} // Deeper, moodier neo-noir zen colors
+            colors={['#0B0E14', '#0B0E14']} // Deep Space Black
             style={styles.container}
         >
-            {viewMode === 'cloud' ? (
-                <CloudCanvas
-                    onSpherePress={handleSpherePress}
-                    selectedNodeId={flyingTo}
-                    onFlightComplete={handleFlightComplete}
+            <StarfieldBackground />
+
+            <View style={[styles.contentWrapper, { paddingTop: Math.max(insets.top, 10) }]}>
+                <SearchBar
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onClear={() => setSearchQuery('')}
                 />
-            ) : (
+
                 <NotesList
                     nodes={allNotes}
-                    onNodePress={handleSpherePress}
+                    onNodePress={handleNotePress}
+                    onLongPress={handleLongPress}
                     selectedTag={selectedTag}
+                    searchQuery={searchQuery}
                 />
-            )}
+            </View>
 
-            <CommandPalette
-                visible={isPaletteOpen}
-                nodes={nodes}
-                onClose={() => setPaletteOpen(false)}
-                onSelectNode={handleSelectNode}
+            <NoteActionDialog
+                visible={!!selectedNoteId}
+                onClose={() => setSelectedNoteId(null)}
+                onDelete={handleDeletePress}
+                onArchive={handleArchivePress}
+                onSend={handleSendPress}
+                onCopy={handleCopyPress}
             />
 
             {/* Floating Action Buttons */}
@@ -102,17 +134,15 @@ export default function HomeScreen() {
                     <Text style={styles.secondaryFabText}>Export</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.fab, styles.paletteFab]} onPress={() => setPaletteOpen(true)} activeOpacity={0.8}>
-                    <Text style={styles.paletteFabText}>{'/'}</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.fab} onPress={handleAddPress} activeOpacity={0.8}>
                     <Text style={styles.fabText}>+</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.fab, styles.secondaryFab]} onPress={toggleViewMode} activeOpacity={0.8}>
-                    <Text style={styles.secondaryFabText}>{viewMode === 'cloud' ? 'List' : 'Cloud'}</Text>
-                </TouchableOpacity>
+                {selectedTag && (
+                    <TouchableOpacity style={[styles.fab, styles.secondaryFab]} onPress={clearFilter} activeOpacity={0.8}>
+                        <Text style={styles.secondaryFabText}>Clear</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </LinearGradient>
     );
@@ -122,29 +152,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
+    contentWrapper: {
+        flex: 1,
+        zIndex: 1,
+    },
     fabContainer: {
         position: 'absolute',
         bottom: 50,
         alignSelf: 'center',
         flexDirection: 'row',
         gap: 20,
+        zIndex: 10,
     },
     fab: {
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#7D5FFF', // Nebula Purple accent
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#ffffff',
+        shadowColor: '#7D5FFF',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.4,
         shadowRadius: 10,
         elevation: 8,
     },
     fabText: {
         fontSize: 40,
-        color: '#121212',
+        color: '#ffffff',
         fontWeight: '300',
         marginTop: -4, // Optical alignment
     },
@@ -152,9 +187,9 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#1a1a24',
+        backgroundColor: '#161B22', // Dark Slate
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(125,95,255,0.2)',
         marginTop: 10,
     },
     secondaryFabText: {
@@ -163,14 +198,14 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     paletteFab: {
-        backgroundColor: '#121212',
+        backgroundColor: '#161B22',
         borderWidth: 1,
-        borderColor: '#333',
-        shadowColor: '#00ffcc',
+        borderColor: 'rgba(125,95,255,0.2)',
+        shadowColor: '#7D5FFF',
     },
     paletteFabText: {
         fontSize: 30,
-        color: '#00ffcc',
+        color: '#7D5FFF',
         fontWeight: '600',
     }
 });

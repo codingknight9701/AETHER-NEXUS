@@ -31,7 +31,7 @@ export default function ReviewScreen() {
 
     if (!thought) {
         return (
-            <LinearGradient colors={['#151833', '#0a0b1a']} style={styles.container}>
+            <LinearGradient colors={['#0B0E14', '#0B0E14']} style={styles.container}>
                 <Text style={styles.errorText}>Thought not found in Vault.</Text>
                 <TouchableOpacity onPress={goBack} style={[styles.backBtn, { paddingTop: Math.max(insets.top, 20) }]}>
                     <Text style={styles.backBtnText}>Return</Text>
@@ -41,7 +41,7 @@ export default function ReviewScreen() {
     }
 
     return (
-        <LinearGradient colors={['#08080C', '#120f18', '#000000']} style={styles.container}>
+        <LinearGradient colors={['#0B0E14', '#0B0E14']} style={styles.container}>
             {/* UI Overlay */}
             <View style={[styles.safeArea, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 20 }}>
@@ -55,6 +55,21 @@ export default function ReviewScreen() {
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <Text style={styles.titleText}>{thought.title}</Text>
+
+                    {(thought.createdAt || thought.updatedAt) && (
+                        <View style={styles.timestampContainer}>
+                            {thought.createdAt && (
+                                <Text style={styles.timestampText}>
+                                    Created: {new Date(thought.createdAt).toLocaleString()}
+                                </Text>
+                            )}
+                            {thought.updatedAt && thought.updatedAt !== thought.createdAt && (
+                                <Text style={styles.timestampText}>
+                                    Last Edited: {new Date(thought.updatedAt).toLocaleString()}
+                                </Text>
+                            )}
+                        </View>
+                    )}
 
                     <View style={styles.glassCard}>
                         <Text style={styles.journalText}>{thought.content}</Text>
@@ -99,12 +114,12 @@ const styles = StyleSheet.create({
         paddingBottom: 60,
     },
     glassCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: '#161B22',
         borderRadius: 20,
         padding: 24,
         marginTop: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(125, 95, 255, 0.2)',
     },
     dateText: {
         color: 'rgba(255, 255, 255, 0.6)',
@@ -114,10 +129,20 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     titleText: {
-        color: '#00ffcc',
+        color: '#7D5FFF',
         fontSize: 32,
         fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    timestampContainer: {
+        flexDirection: 'column',
+        gap: 4,
         marginBottom: 20,
+    },
+    timestampText: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 14,
+        fontStyle: 'italic',
     },
     journalText: {
         color: '#fff',
@@ -143,17 +168,17 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     linkBadge: {
-        backgroundColor: 'rgba(0, 255, 204, 0.1)',
+        backgroundColor: 'rgba(125, 95, 255, 0.1)',
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(0, 255, 204, 0.3)',
+        borderColor: 'rgba(125, 95, 255, 0.3)',
         marginBottom: 10,
         alignSelf: 'flex-start',
     },
     linkBadgeText: {
-        color: '#00ffcc',
+        color: '#7D5FFF',
         fontSize: 16,
         fontWeight: '600',
     }

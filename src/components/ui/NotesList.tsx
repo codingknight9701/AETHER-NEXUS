@@ -1,30 +1,54 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { GraphNode } from '../../utils/vault';
 import { extractTags } from '../../utils/exporter';
 
 interface NotesListProps {
     nodes: GraphNode[];
     onNodePress: (id: string) => void;
+    onLongPress?: (id: string) => void;
     selectedTag: string | null;
+    searchQuery?: string;
 }
 
-export default function NotesList({ nodes, onNodePress, selectedTag }: NotesListProps) {
-    const filteredNodes = selectedTag
+export default function NotesList({ nodes, onNodePress, onLongPress, selectedTag, searchQuery = '' }: NotesListProps) {
+    let filteredNodes = selectedTag
         ? nodes.filter(node => extractTags(node.content).includes(selectedTag))
         : nodes;
 
-    const renderItem = ({ item }: { item: GraphNode }) => {
+    if (searchQuery.trim().length > 0) {
+        const lowerQuery = searchQuery.toLowerCase().trim();
+        filteredNodes = filteredNodes.filter(node => {
+            const titleStr = node.title || '';
+            const contentStr = node.content || '';
+            return titleStr.toLowerCase().includes(lowerQuery) ||
+                contentStr.toLowerCase().includes(lowerQuery);
+        });
+    }
+
+    const renderItem = ({ item }: { item: any }) => {
         const tags = extractTags(item.content);
         const excerpt = item.content.replace(/#\w+/g, '').trim().substring(0, 100) + '...';
+
+        const formatDate = (timestamp?: number) => {
+            if (!timestamp) return '';
+            return new Date(timestamp).toLocaleDateString(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        };
 
         return (
             <TouchableOpacity
                 style={styles.card}
                 onPress={() => onNodePress(item.id)}
+                onLongPress={() => onLongPress && onLongPress(item.id)}
+                delayLongPress={500}
                 activeOpacity={0.7}
             >
-                <Text style={styles.title} numberOfLines={1}>{item.label}</Text>
+                <View style={styles.cardHeader}>
+                    <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                </View>
                 <Text style={styles.excerpt} numberOfLines={2}>{excerpt}</Text>
 
                 {tags.length > 0 && (
@@ -34,6 +58,21 @@ export default function NotesList({ nodes, onNodePress, selectedTag }: NotesList
                                 <Text style={styles.tagText}>#{tag}</Text>
                             </View>
                         ))}
+                    </View>
+                )}
+
+                {(item.createdAt || item.updatedAt) && (
+                    <View style={styles.timestampContainer}>
+                        {item.createdAt && (
+                            <Text style={styles.timestampText}>
+                                Created: {formatDate(item.createdAt)}
+                            </Text>
+                        )}
+                        {item.updatedAt && item.updatedAt !== item.createdAt && (
+                            <Text style={styles.timestampText}>
+                                Last Edited: {formatDate(item.updatedAt)}
+                            </Text>
+                        )}
                     </View>
                 )}
             </TouchableOpacity>
@@ -67,18 +106,25 @@ const styles = StyleSheet.create({
         paddingBottom: 120, // Space for FABs
     },
     card: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: '#161B22', // Dark Slate
         borderRadius: 12,
         padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: 'rgba(125, 95, 255, 0.1)',
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     title: {
         color: '#ffffff',
         fontSize: 18,
         fontWeight: '600',
-        marginBottom: 8,
+        flex: 1,
+        marginRight: 10,
     },
     excerpt: {
         color: 'rgba(255, 255, 255, 0.6)',
@@ -92,15 +138,15 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     tagBadge: {
-        backgroundColor: 'rgba(0, 255, 204, 0.1)',
+        backgroundColor: 'rgba(125, 95, 255, 0.1)',
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 4,
         borderWidth: 1,
-        borderColor: 'rgba(0, 255, 204, 0.3)',
+        borderColor: 'rgba(125, 95, 255, 0.3)',
     },
     tagText: {
-        color: '#00ffcc',
+        color: '#7D5FFF',
         fontSize: 12,
         fontWeight: '500',
     },
@@ -114,5 +160,18 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.5)',
         fontSize: 16,
         textAlign: 'center',
+    },
+    timestampContainer: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+        flexDirection: 'column',
+        gap: 4,
+    },
+    timestampText: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontSize: 12,
+        fontStyle: 'italic',
     }
 });

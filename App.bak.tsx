@@ -1,5 +1,6 @@
-import React, { useEffect, useState, ErrorInfo, useRef } from 'react';
-import { View, StatusBar, StyleSheet, Animated, LogBox, Text, Platform } from 'react-native';
+console.log('--- APP.TSX IS EVALUATING ---');
+import React, { useEffect, useState, ErrorInfo } from 'react';
+import { View, StatusBar, StyleSheet, Animated, LogBox, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useJournalStore } from './src/store/useJournalStore';
 import { initAudio, playBackgroundMusic } from './src/utils/audio';
@@ -63,44 +64,10 @@ import ReviewScreen from './src/screens/ReviewScreen';
 import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
-  const { currentRoute, hydrate, isHydrated, isLocked, lock } = useJournalStore();
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
-
-  const resetInactivityTimer = () => {
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-    }
-    // Only auto-lock if we are currently unlocked
-    if (!isLocked) {
-      inactivityTimer.current = setTimeout(() => {
-        lock();
-      }, 60000); // 1 minute of inactivity
-    }
-  };
-
-  useEffect(() => {
-    resetInactivityTimer();
-
-    if (Platform.OS === 'web') {
-      const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
-      const handleActivity = () => resetInactivityTimer();
-
-      events.forEach(event => window.addEventListener(event, handleActivity));
-
-      return () => {
-        if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-        events.forEach(event => window.removeEventListener(event, handleActivity));
-      };
-    }
-
-    return () => {
-      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    };
-  }, [isLocked]);
+  const { currentRoute, isLocked } = useJournalStore();
 
   useEffect(() => {
     const setupApp = async () => {
-      await hydrate();
       await initVault();
       await initAudio();
       playBackgroundMusic();
@@ -109,10 +76,6 @@ export default function App() {
   }, []);
 
   const renderScreen = () => {
-    if (!isHydrated) {
-      return <View style={styles.container} />; // Loading state
-    }
-
     if (isLocked) {
       return <LoginScreen />;
     }
@@ -131,13 +94,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <View
-        style={styles.container}
-        onStartShouldSetResponderCapture={() => {
-          resetInactivityTimer();
-          return false;
-        }}
-      >
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
         <ErrorBoundary>
           {renderScreen()}

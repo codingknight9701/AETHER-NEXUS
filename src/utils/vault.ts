@@ -26,11 +26,15 @@ const saveWebData = (data: Record<string, string>) => {
 
 export interface GraphNode {
     id: string; // The tag name or note id
-    label: string; // The tag name
+    label: string; // The tag name or visual title
+    title?: string; // Explicit title for Notes
     content: string; // Not strictly used for tags, but we'll keep for backward comp or use as list of notes
     backlinks: string[];
     frequency?: number; // Count of notes with this tag
     type?: 'tag' | 'note';
+    createdAt?: number;
+    updatedAt?: number;
+    isArchived?: boolean;
 }
 
 export interface GraphLink {
@@ -43,6 +47,9 @@ export const initVault = async () => {
         const data = getWebData();
         if (Object.keys(data).length === 0) {
             await seedVault();
+        } else {
+            // Ensure residual dummy data is cleaned up for existing users
+            await cleanResidualDummyData();
         }
         return;
     }
@@ -51,6 +58,15 @@ export const initVault = async () => {
     if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(THOUGHTS_DIR, { intermediates: true });
         await seedVault(); // Seed with dummy data on first create
+    } else {
+        await cleanResidualDummyData();
+    }
+};
+
+const cleanResidualDummyData = async () => {
+    const dummyIds = ['moaz-ahmed.md', 'aether-nexus.md', 'thoughts.md'];
+    for (const id of dummyIds) {
+        await deleteThought(id);
     }
 };
 
@@ -69,24 +85,71 @@ export const resetVault = async () => {
 };
 
 const seedVault = async () => {
-    await saveThought('Moaz Ahmed', 'The brilliant mind behind this instance of Aether Nexus.');
-    await saveThought('Aether Nexus', 'The central core of the second brain. It processes [[Thoughts]] using anti-gravity physics.');
-    await saveThought('Thoughts', 'Fleeting ideas captured in markdown. [[Aether Nexus]] organizes them visually.');
+    // Vault seeds have been permanently removed
 };
 
-export const saveThought = async (title: string, markdownContent: string) => {
-    const filename = `${title.replace(/\s+/g, '-').toLowerCase()}.md`;
+export const saveThought = async (title: string, markdownContent: string, originalId?: string, isArchived: boolean = false) => {
+    // Preserve the original text case by encoding spaces, but retaining casing where possible
+    const filename = `${title.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}.md`;
+
+    let createdAt = Date.now();
+    let updatedAt = Date.now();
+
+    if (originalId) {
+        const existingNode = await readThought(originalId);
+        if (existingNode && existingNode.createdAt) {
+            createdAt = existingNode.createdAt;
+        }
+
+        if (originalId !== filename) {
+            await deleteThought(originalId);
+        }
+    }
+
+    const metadataBlock = `<!--METADATA:${JSON.stringify({ createdAt, updatedAt, isArchived })}-->\n`;
+
+    // Automatically ensure the content starts with an H1 header of the exact title if not present
+    let finalContent = markdownContent;
+    if (!markdownContent.split('\n')[0].startsWith('# ')) {
+        finalContent = `# ${title}\n\n${markdownContent}`;
+    }
+
+    finalContent = metadataBlock + finalContent;
 
     if (Platform.OS === 'web') {
         const data = getWebData();
-        data[filename] = markdownContent;
+        data[filename] = finalContent;
         saveWebData(data);
         return filename;
     }
 
     const uri = `${THOUGHTS_DIR}${filename}`;
-    await FileSystem.writeAsStringAsync(uri, markdownContent);
+    await FileSystem.writeAsStringAsync(uri, finalContent);
     return filename;
+};
+
+export const deleteThought = async (id: string) => {
+    if (Platform.OS === 'web') {
+        const data = getWebData();
+        if (data[id]) {
+            delete data[id];
+            saveWebData(data);
+        }
+        return;
+    }
+
+    try {
+        const uri = `${THOUGHTS_DIR}${id}`;
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+    } catch (e) {
+        console.warn('Delete error', e);
+    }
+};
+
+export const archiveThought = async (id: string) => {
+    const note = await readThought(id);
+    if (!note) return;
+    await saveThought(note.title, note.content, id, true);
 };
 
 export const parseLinks = (content: string): string[] => {
@@ -116,29 +179,88 @@ export const readThought = async (id: string) => {
             content = await FileSystem.readAsStringAsync(`${THOUGHTS_DIR}${id}`);
         }
 
-        // Simple title extraction
-        const title = id.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        let title = id.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        let cleanContent = content;
+
+        let createdAt: number | undefined;
+        let updatedAt: number | undefined;
+        let isArchived: boolean = false;
+
+        let lines = content.split('\n');
+        if (lines[0] && lines[0].startsWith('<!--METADATA:') && lines[0].endsWith('-->')) {
+            try {
+                const metaRaw = lines[0].substring(13, lines[0].length - 3);
+                const metadata = JSON.parse(metaRaw);
+                createdAt = metadata.createdAt;
+                updatedAt = metadata.updatedAt;
+                isArchived = metadata.isArchived || false;
+            } catch (err) {
+                console.warn('Failed to parse metadata block', err);
+            }
+            lines.shift();
+            cleanContent = lines.join('\n');
+        }
+
+        const firstLine = cleanContent.split('\n')[0];
+        if (firstLine && firstLine.startsWith('# ')) {
+            title = firstLine.replace('# ', '').trim();
+            cleanContent = cleanContent.substring(firstLine.length).replace(/^\s+/, '');
+        }
 
         const backlinks: string[] = []; // In a real system, you'd calculate these globally or cache them
-        const outgoingLinks = parseLinks(content);
+        const outgoingLinks = parseLinks(cleanContent);
 
-        return { id, title, content, links: outgoingLinks, backlinks };
+        return { id, title, content: cleanContent, links: outgoingLinks, backlinks, createdAt, updatedAt, isArchived };
     } catch (e) {
         return null;
     }
 };
 
-export const readAllThoughts = async () => {
+export const readAllThoughts = async (includeArchived: boolean = false) => {
     if (Platform.OS === 'web') {
         const data = getWebData();
-        return Object.keys(data).map(filename => {
-            const title = filename.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        const allNotes = Object.keys(data).map(filename => {
+            const content = data[filename];
+
+            let title = filename.replace('.md', '').split('-').join(' ');
+            let cleanContent = content;
+
+            let createdAt: number | undefined;
+            let updatedAt: number | undefined;
+            let isArchived: boolean = false;
+
+            let lines = content.split('\n');
+            if (lines[0] && lines[0].startsWith('<!--METADATA:') && lines[0].endsWith('-->')) {
+                try {
+                    const metaRaw = lines[0].substring(13, lines[0].length - 3);
+                    const metadata = JSON.parse(metaRaw);
+                    createdAt = metadata.createdAt;
+                    updatedAt = metadata.updatedAt;
+                    isArchived = metadata.isArchived || false;
+                } catch (err) { }
+                lines.shift();
+                cleanContent = lines.join('\n');
+            }
+
+            const firstLine = cleanContent.split('\n')[0];
+            if (firstLine && firstLine.startsWith('# ')) {
+                title = firstLine.replace('# ', '').trim();
+                cleanContent = cleanContent.substring(firstLine.length).replace(/^\s+/, '');
+            } else {
+                title = title.split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
+            }
+
             return {
                 id: filename,
                 title,
-                content: data[filename]
+                content: cleanContent,
+                label: title,
+                createdAt,
+                updatedAt,
+                isArchived
             };
         });
+        return includeArchived ? allNotes : allNotes.filter(n => !n.isArchived);
     }
 
     const files = await FileSystem.readDirectoryAsync(THOUGHTS_DIR);
@@ -146,17 +268,47 @@ export const readAllThoughts = async () => {
 
     const thoughts = await Promise.all(mdFiles.map(async (filename) => {
         const content = await FileSystem.readAsStringAsync(`${THOUGHTS_DIR}${filename}`);
-        // Simple title extraction from filename (remove .md and replace dashes with spaces)
-        const title = filename.replace('.md', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+        let title = filename.replace('.md', '').split('-').join(' ');
+        let cleanContent = content;
+
+        let createdAt: number | undefined;
+        let updatedAt: number | undefined;
+        let isArchived: boolean = false;
+
+        let lines = content.split('\n');
+        if (lines[0] && lines[0].startsWith('<!--METADATA:') && lines[0].endsWith('-->')) {
+            try {
+                const metaRaw = lines[0].substring(13, lines[0].length - 3);
+                const metadata = JSON.parse(metaRaw);
+                createdAt = metadata.createdAt;
+                updatedAt = metadata.updatedAt;
+                isArchived = metadata.isArchived || false;
+            } catch (err) { }
+            lines.shift();
+            cleanContent = lines.join('\n');
+        }
+
+        const firstLine = cleanContent.split('\n')[0];
+        if (firstLine && firstLine.startsWith('# ')) {
+            title = firstLine.replace('# ', '').trim();
+            cleanContent = cleanContent.substring(firstLine.length).replace(/^\s+/, '');
+        } else {
+            title = title.split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
+        }
 
         return {
             id: filename,
             title,
-            content
+            content: cleanContent,
+            label: title,
+            createdAt,
+            updatedAt,
+            isArchived
         };
     }));
 
-    return thoughts;
+    return includeArchived ? thoughts : thoughts.filter(n => !n.isArchived);
 };
 
 // Helper to extract tags
