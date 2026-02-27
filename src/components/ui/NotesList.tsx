@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { GraphNode } from '../../utils/vault';
 import { extractTags } from '../../utils/exporter';
+import { useThemeStore } from '../../store/useThemeStore';
 
 interface NotesListProps {
     nodes: GraphNode[];
@@ -12,6 +13,7 @@ interface NotesListProps {
 }
 
 export default function NotesList({ nodes, onNodePress, onLongPress, selectedTag, searchQuery = '' }: NotesListProps) {
+    const { theme } = useThemeStore();
     let filteredNodes = selectedTag
         ? nodes.filter(node => extractTags(node.content).includes(selectedTag))
         : nodes;
@@ -40,16 +42,16 @@ export default function NotesList({ nodes, onNodePress, onLongPress, selectedTag
 
         return (
             <TouchableOpacity
-                style={styles.card}
+                style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.accentDim, shadowColor: theme.accent }]}
                 onPress={() => onNodePress(item.id)}
                 onLongPress={() => onLongPress && onLongPress(item.id)}
                 delayLongPress={500}
                 activeOpacity={0.7}
             >
                 <View style={styles.cardHeader}>
-                    <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                 </View>
-                <Text style={styles.excerpt} numberOfLines={2}>{excerpt}</Text>
+                <Text style={[styles.excerpt, { color: theme.textSecondary }]} numberOfLines={2}>{excerpt}</Text>
 
                 {tags.length > 0 && (
                     <View style={styles.tagsContainer}>

@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useJournalStore } from '../store/useJournalStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { isWebAuthnSupported, registerWebAuthn, authenticateWebAuthn } from '../utils/webAuthn';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +16,7 @@ export default function LoginScreen() {
     const [shakeAnim] = useState(new Animated.Value(0));
 
     const { hashedPin, setHashedPin, unlock, webAuthnCredentialId, setWebAuthnCredentialId } = useJournalStore();
+    const { theme } = useThemeStore();
     const insets = useSafeAreaInsets();
 
     useEffect(() => {
@@ -202,7 +204,7 @@ export default function LoginScreen() {
 
     return (
         <LinearGradient
-            colors={['#0D1117', '#111827']}
+            colors={[theme.bgFrom, theme.bgTo]}
             style={styles.container}
         >
             <View style={[styles.content, { paddingTop: insets.top + 40 }]}>

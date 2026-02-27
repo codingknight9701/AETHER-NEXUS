@@ -3,21 +3,25 @@ import { View, StyleSheet, TouchableOpacity, Text, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useJournalStore } from '../store/useJournalStore';
+import { useThemeStore } from '../store/useThemeStore';
 import NotesList from '../components/ui/NotesList';
 import StarfieldBackground from '../components/ui/StarfieldBackground';
 import SearchBar from '../components/ui/SearchBar';
 import NoteActionDialog from '../components/ui/NoteActionDialog';
+import SideMenu from '../components/ui/SideMenu';
 import { buildGraph, GraphNode, readAllThoughts, deleteThought, archiveThought, readThought, saveThought } from '../utils/vault';
 import { exportToNotebookLM } from '../utils/exporter';
 import * as Haptics from 'expo-haptics';
 
 export default function HomeScreen() {
     const { navigate, removeEntry, currentRoute } = useJournalStore();
+    const { theme } = useThemeStore();
     const insets = useSafeAreaInsets();
     const [allNotes, setAllNotes] = useState<any[]>([]);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+    const [sideMenuVisible, setSideMenuVisible] = useState(false);
 
     useEffect(() => {
         const loadNodes = async () => {
@@ -98,17 +102,29 @@ export default function HomeScreen() {
 
     return (
         <LinearGradient
-            colors={['#0D1117', '#111827']}
+            colors={[theme.bgFrom, theme.bgTo]}
             style={styles.container}
         >
             <StarfieldBackground />
 
             <View style={[styles.contentWrapper, { paddingTop: Math.max(insets.top, 10) }]}>
-                <SearchBar
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    onClear={() => setSearchQuery('')}
-                />
+                {/* Top bar: Search + Hamburger */}
+                <View style={styles.topBar}>
+                    <View style={styles.searchWrapper}>
+                        <SearchBar
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            onClear={() => setSearchQuery('')}
+                        />
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.menuBtn, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSideMenuVisible(true); }}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.menuBtnText, { color: theme.textPrimary }]}>☰</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <NotesList
                     nodes={allNotes}
@@ -128,19 +144,30 @@ export default function HomeScreen() {
                 onCopy={handleCopyPress}
             />
 
+            <SideMenu visible={sideMenuVisible} onClose={() => setSideMenuVisible(false)} />
+
             {/* Floating Action Buttons */}
             <View style={styles.fabContainer}>
-                <TouchableOpacity style={[styles.fab, styles.secondaryFab]} onPress={handleExport} activeOpacity={0.8}>
-                    <Text style={styles.secondaryFabText}>Export</Text>
+                <TouchableOpacity
+                    style={[styles.fab, styles.secondaryFab, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}
+                    onPress={handleExport} activeOpacity={0.8}
+                >
+                    <Text style={[styles.secondaryFabText, { color: theme.textSecondary }]}>Export</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.fab} onPress={handleAddPress} activeOpacity={0.8}>
+                <TouchableOpacity
+                    style={[styles.fab, { backgroundColor: theme.accent, shadowColor: theme.accent }]}
+                    onPress={handleAddPress} activeOpacity={0.8}
+                >
                     <Text style={styles.fabText}>+</Text>
                 </TouchableOpacity>
 
                 {selectedTag && (
-                    <TouchableOpacity style={[styles.fab, styles.secondaryFab]} onPress={clearFilter} activeOpacity={0.8}>
-                        <Text style={styles.secondaryFabText}>Clear</Text>
+                    <TouchableOpacity
+                        style={[styles.fab, styles.secondaryFab, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}
+                        onPress={clearFilter} activeOpacity={0.8}
+                    >
+                        <Text style={[styles.secondaryFabText, { color: theme.textSecondary }]}>Clear</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -156,6 +183,27 @@ const styles = StyleSheet.create({
         flex: 1,
         zIndex: 1,
     },
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingRight: 20,
+    },
+    searchWrapper: {
+        flex: 1,
+    },
+    menuBtn: {
+        width: 46,
+        height: 46,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        marginTop: 20,
+        marginLeft: 10,
+    },
+    menuBtnText: {
+        fontSize: 20,
+    },
     fabContainer: {
         position: 'absolute',
         bottom: 50,
@@ -168,10 +216,8 @@ const styles = StyleSheet.create({
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: '#7D5FFF',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#7D5FFF',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.7,
         shadowRadius: 14,
@@ -187,18 +233,14 @@ const styles = StyleSheet.create({
         width: 54,
         height: 54,
         borderRadius: 27,
-        backgroundColor: '#1C2333',
         borderWidth: 1,
-        borderColor: 'rgba(125,95,255,0.5)',
         marginTop: 8,
-        shadowColor: '#7D5FFF',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
     },
     secondaryFabText: {
         fontSize: 14,
-        color: 'rgba(255,255,255,0.9)',
         fontWeight: '600',
     },
     paletteFab: {

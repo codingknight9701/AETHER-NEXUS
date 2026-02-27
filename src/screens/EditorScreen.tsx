@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet, TouchableOpacity, Text, KeyboardAvoidingVi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useJournalStore } from '../store/useJournalStore';
+import { useThemeStore } from '../store/useThemeStore';
 import * as Haptics from 'expo-haptics';
 import { playSaveChime } from '../utils/audio';
 import { saveThought, readThought } from '../utils/vault';
@@ -25,6 +26,7 @@ export default function EditorScreen() {
 
     const goBack = useJournalStore((state) => state.goBack);
     const currentRoute = useJournalStore((state) => state.currentRoute);
+    const { theme } = useThemeStore();
     const idToEdit = currentRoute.params?.id;
     const prefillTitle = currentRoute.params?.prefillTitle;
     const insets = useSafeAreaInsets();
@@ -69,25 +71,25 @@ export default function EditorScreen() {
     const glowStyle = {
         backgroundColor: focusAnim.interpolate({
             inputRange: [0, 1],
-            outputRange: ['rgba(255, 255, 255, 0.01)', 'rgba(125, 95, 255, 0.05)']
+            outputRange: ['rgba(255, 255, 255, 0.01)', `${theme.accent}0D`]
         }),
         borderColor: focusAnim.interpolate({
             inputRange: [0, 1],
-            outputRange: ['rgba(255, 255, 255, 0.05)', 'rgba(125, 95, 255, 0.5)']
+            outputRange: ['rgba(255, 255, 255, 0.05)', `${theme.accent}80`]
         }),
         borderWidth: 1,
         borderRadius: 16,
-        ...(Platform.OS === 'web' ? { transition: 'box-shadow 0.3s ease, border-color 0.3s ease', boxShadow: isFocused ? '0 0 15px rgba(125, 95, 255, 0.15)' : 'none' } : {})
+        ...(Platform.OS === 'web' ? { transition: 'box-shadow 0.3s ease, border-color 0.3s ease', boxShadow: isFocused ? `0 0 15px ${theme.accent}30` : 'none' } : {})
     };
 
     return (
         <LinearGradient
-            colors={['#0B0E14', '#0B0E14']}
+            colors={[theme.bgFrom, theme.bgTo]}
             style={styles.container}
         >
             <View style={styles.backgroundLayer} pointerEvents="none">
                 <StarfieldBackground />
-                <View style={styles.darkOverlay} />
+                <View style={[styles.darkOverlay, { backgroundColor: theme.overlayColor }]} />
             </View>
 
             <KeyboardAvoidingView
@@ -100,10 +102,10 @@ export default function EditorScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={handleSave}
-                        style={[styles.headerBtn, (!text.trim() && !title.trim()) && styles.disabledBtn]}
+                        style={[styles.headerBtn, { backgroundColor: (!text.trim() && !title.trim()) ? 'rgba(255,255,255,0.1)' : theme.accent }, (!text.trim() && !title.trim()) && styles.disabledBtn]}
                         disabled={(!text.trim() && !title.trim()) || showSaved}
                     >
-                        <Text style={[styles.headerBtnText, styles.saveText]}>Save to Vault</Text>
+                        <Text style={[styles.headerBtnText, { color: '#fff', fontWeight: '700' }]}>Save to Vault</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -116,7 +118,7 @@ export default function EditorScreen() {
                 <TextInput
                     style={[styles.titleInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
                     placeholder="Thought Title..."
-                    placeholderTextColor="rgba(125,95,255,0.4)" // Glowing purple placeholder
+                    placeholderTextColor={`${theme.accent}66`}
                     value={title}
                     onChangeText={setTitle}
                     autoCapitalize="words"

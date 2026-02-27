@@ -3,13 +3,14 @@ import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useJournalStore } from '../store/useJournalStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { readThought } from '../utils/vault';
 import { Canvas } from '@react-three/fiber';
 import MoodLandscape from '../components/3d/MoodLandscape';
 
 export default function ReviewScreen() {
-    const currentRoute = useJournalStore((state) => state.currentRoute);
-    const goBack = useJournalStore((state) => state.goBack);
+    const { currentRoute, navigate, goBack } = useJournalStore();
+    const { theme } = useThemeStore();
     const entryId = currentRoute.params?.id; // e.g. "neo-noir.md"
     const insets = useSafeAreaInsets();
 
@@ -71,7 +72,7 @@ export default function ReviewScreen() {
                         </View>
                     )}
 
-                    <View style={styles.glassCard}>
+                    <View style={[styles.glassCard, { backgroundColor: theme.cardBg, borderColor: theme.accentDim, shadowColor: theme.accent }]}>
                         <Text style={styles.journalText}>{thought.content}</Text>
                     </View>
 

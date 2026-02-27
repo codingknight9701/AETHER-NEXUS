@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeStore } from '../../store/useThemeStore';
 
 interface SearchBarProps {
     value: string;
@@ -9,21 +10,22 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ value, onChangeText, onClear }: SearchBarProps) {
+    const { theme } = useThemeStore();
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}>
             {Platform.OS === 'web' ? (
                 /* @ts-ignore */
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(125,95,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={styles.searchIcon}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={`${theme.accent}99`} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={styles.searchIcon}>
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
             ) : (
-                <Ionicons name="search" size={20} color="rgba(125,95,255,0.6)" style={styles.searchIcon} />
+                <Ionicons name="search" size={20} color={`${theme.accent}99`} style={styles.searchIcon} />
             )}
             <TextInput
                 style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
                 placeholder="Search Nexus..."
-                placeholderTextColor="rgba(125,95,255,0.4)"
+                placeholderTextColor={`${theme.accent}66`}
                 value={value}
                 onChangeText={onChangeText}
                 autoCorrect={false}
@@ -31,7 +33,7 @@ export default function SearchBar({ value, onChangeText, onClear }: SearchBarPro
             />
             {value.length > 0 && (
                 <TouchableOpacity onPress={onClear} style={styles.clearButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Text style={styles.clearText}>✕</Text>
+                    <Text style={[styles.clearText, { color: theme.accent }]}>✕</Text>
                 </TouchableOpacity>
             )}
         </View>

@@ -2,6 +2,7 @@ import React, { useEffect, useState, ErrorInfo, useRef } from 'react';
 import { View, StatusBar, StyleSheet, Animated, LogBox, Text, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useJournalStore } from './src/store/useJournalStore';
+import { useThemeStore } from './src/store/useThemeStore';
 import { initAudio, playBackgroundMusic } from './src/utils/audio';
 import { initVault } from './src/utils/vault';
 
@@ -64,6 +65,7 @@ import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
   const { currentRoute, hydrate, isHydrated, isLocked, lock } = useJournalStore();
+  const { hydrateTheme } = useThemeStore();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
   const resetInactivityTimer = () => {
@@ -100,6 +102,7 @@ export default function App() {
 
   useEffect(() => {
     const setupApp = async () => {
+      await hydrateTheme(); // Load persisted theme FIRST
       await hydrate();
       await initVault();
       await initAudio();
