@@ -154,13 +154,22 @@ export default function LoginScreen() {
     const renderDots = () => {
         const dots = [];
         for (let i = 0; i < 4; i++) {
+            const filled = currentPin.length > i;
+            const hasError = errorMsg !== '';
             dots.push(
                 <View
                     key={i}
                     style={[
                         styles.dot,
-                        currentPin.length > i ? styles.dotFilled : null,
-                        errorMsg !== '' ? styles.dotError : null
+                        filled && !hasError ? {
+                            backgroundColor: theme.accent,
+                            borderColor: theme.accent,
+                            shadowColor: theme.accent,
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowOpacity: 0.85,
+                            shadowRadius: 8,
+                        } : null,
+                        hasError ? styles.dotError : null,
                     ]}
                 />
             );

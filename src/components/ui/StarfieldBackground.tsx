@@ -11,11 +11,12 @@ interface ParticleConfig {
     colors: string[];
     minSize: number;
     maxSize: number;
-    minSpeed: number;  // ms per full travel
+    minSpeed: number;
     maxSpeed: number;
-    direction: 'up' | 'down' | 'float';
+    direction: 'up' | 'down' | 'float' | 'diagonal-left' | 'diagonal-right';
     glow: boolean;
-    shape: 'circle' | 'elongated';
+    shape: 'circle' | 'elongated' | 'leaf';
+    opacity?: { min: number; max: number };
 }
 
 const THEME_CONFIGS: Record<string, ParticleConfig> = {
@@ -38,22 +39,24 @@ const THEME_CONFIGS: Record<string, ParticleConfig> = {
         shape: 'elongated',
     },
     forest: {
-        count: 70,
-        colors: ['#22C55E', '#4ADE80', '#86EFAC', '#00FF7F', '#34D399'],
-        minSize: 3, maxSize: 6,
-        minSpeed: 6000, maxSpeed: 18000,
-        direction: 'float',
-        glow: true,
-        shape: 'circle',
+        count: 55,
+        colors: ['#22C55E', '#4ADE80', '#86EFAC', '#A3E635', '#D9F99D', '#BBF7D0'],
+        minSize: 8, maxSize: 16,
+        minSpeed: 7000, maxSpeed: 16000,
+        direction: 'diagonal-right',
+        glow: false,
+        shape: 'leaf',
+        opacity: { min: 0.45, max: 0.85 },
     },
     amber: {
         count: 80,
-        colors: ['#F59E0B', '#FBC34A', '#FCD34D', '#FBBF24', '#D97706'],
-        minSize: 1.5, maxSize: 4,
-        minSpeed: 10000, maxSpeed: 24000,
-        direction: 'float',
+        colors: ['#D4A017', '#C8961A', '#E8B84B', '#F0C040', '#BF8A14', '#EAD090'],
+        minSize: 3, maxSize: 18,
+        minSpeed: 14000, maxSpeed: 32000,
+        direction: 'diagonal-left',
         glow: false,
         shape: 'circle',
+        opacity: { min: 0.06, max: 0.35 },
     },
     arctic: {
         count: 85,
@@ -73,11 +76,15 @@ function createParticles(cfg: ParticleConfig) {
         x: Math.random() * W,
         y: Math.random() * H,
         size: Math.random() * (cfg.maxSize - cfg.minSize) + cfg.minSize,
-        opacity: Math.random() * 0.55 + 0.25,
+        opacity: cfg.opacity
+            ? Math.random() * (cfg.opacity.max - cfg.opacity.min) + cfg.opacity.min
+            : Math.random() * 0.55 + 0.25,
         speed: Math.random() * (cfg.maxSpeed - cfg.minSpeed) + cfg.minSpeed,
         color: cfg.colors[Math.floor(Math.random() * cfg.colors.length)],
-        // For floating: random horizontal drift offset
         xDrift: (Math.random() - 0.5) * 80,
+        // Leaf-specific: random initial rotation + spin direction
+        rotation: Math.random() * 360,
+        spinDir: Math.random() > 0.5 ? 1 : -1,
     }));
 }
 
@@ -90,65 +97,88 @@ function AnimatedParticle({
     animVal: Animated.Value;
     cfg: ParticleConfig;
 }) {
-    const w = cfg.shape === 'elongated'
-        ? particle.size * 0.6
-        : particle.size;
-    const h = cfg.shape === 'elongated'
-        ? particle.size * 2.2
-        : particle.size;
-
-    const baseStyle = {
-        width: w,
-        height: h,
-        borderRadius: cfg.shape === 'elongated' ? w / 2 : particle.size / 2,
-        opacity: particle.opacity,
-        backgroundColor: particle.color,
-        ...(cfg.glow ? {
-            shadowColor: particle.color,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.9,
-            shadowRadius: 5,
-        } : {}),
-    };
-
-    if (cfg.direction === 'float') {
-        // Floating: animate Y slightly up/down and X slightly side-to-side
+    // ── LEAF shape: rotates and falls diagonally ──────────────────────────────
+    if (cfg.shape === 'leaf') {
+        const leafW = particle.size * 0.55;
+        const leafH = particle.size;
+        const xShift = particle.spinDir > 0 ? W * 0.35 : -W * 0.3;
         const translateY = animVal.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [particle.y, particle.y - 30 - Math.random() * 40, particle.y],
+            inputRange: [0, 1],
+            outputRange: [-leafH * 2, H + leafH * 2],
         });
         const translateX = animVal.interpolate({
             inputRange: [0, 0.5, 1],
-            outputRange: [particle.x, particle.x + particle.xDrift, particle.x],
+            outputRange: [particle.x, particle.x + xShift * 0.5, particle.x + xShift],
+        });
+        const rotate = animVal.interpolate({
+            inputRange: [0, 1],
+            outputRange: [`${particle.rotation}deg`, `${particle.rotation + particle.spinDir * 280}deg`],
         });
         return (
-            <Animated.View
-                style={[styles.particle, baseStyle, {
-                    transform: [{ translateX }, { translateY }],
-                }]}
-            />
+            <Animated.View style={[styles.particle, {
+                width: leafW,
+                height: leafH,
+                borderRadius: leafW / 2,
+                backgroundColor: particle.color,
+                opacity: particle.opacity,
+                transform: [{ translateX }, { translateY }, { rotate }],
+            }]} />
         );
     }
 
-    // For up/down: two copies (seamless loop like original)
-    const travelDistance = cfg.direction === 'down' ? H : -H;
+    // ── ELONGATED ember: fast rising sparks ───────────────────────────────────
+    if (cfg.shape === 'elongated') {
+        const pw = particle.size * 0.6;
+        const ph = particle.size * 2.2;
+        const baseStyle = {
+            width: pw, height: ph, borderRadius: pw / 2,
+            opacity: particle.opacity, backgroundColor: particle.color,
+            shadowColor: particle.color, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.9, shadowRadius: 5,
+        };
+        const ty1 = Animated.add(animVal, particle.y);
+        const ty2 = Animated.add(animVal, particle.y + H);
+        return (
+            <React.Fragment>
+                <Animated.View style={[styles.particle, baseStyle, { transform: [{ translateX: particle.x }, { translateY: ty1 }] }]} />
+                <Animated.View style={[styles.particle, baseStyle, { transform: [{ translateX: particle.x }, { translateY: ty2 }] }]} />
+            </React.Fragment>
+        );
+    }
+
+    // ── CIRCLE ────────────────────────────────────────────────────────────────
+    const glowProps = cfg.glow ? {
+        shadowColor: particle.color,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.9, shadowRadius: 5,
+    } : {};
+    const baseStyle = {
+        width: particle.size, height: particle.size,
+        borderRadius: particle.size / 2,
+        opacity: particle.opacity,
+        backgroundColor: particle.color,
+        ...glowProps,
+    };
+
+    // Dune: diagonal sand drift
+    if (cfg.direction === 'diagonal-left' || cfg.direction === 'diagonal-right') {
+        const xShift = cfg.direction === 'diagonal-left' ? -W * 0.65 : W * 0.65;
+        const translateY = animVal.interpolate({ inputRange: [0, 1], outputRange: [particle.y, particle.y + H * 0.45] });
+        const translateX = animVal.interpolate({ inputRange: [0, 1], outputRange: [particle.x, particle.x + xShift] });
+        return (
+            <Animated.View style={[styles.particle, baseStyle, { transform: [{ translateX }, { translateY }] }]} />
+        );
+    }
+
+    // Up / Down seamless two-copy loop
     const ty1 = Animated.add(animVal, particle.y);
     const ty2 = cfg.direction === 'down'
         ? Animated.add(animVal, particle.y - H)
         : Animated.add(animVal, particle.y + H);
-
     return (
         <React.Fragment>
-            <Animated.View
-                style={[styles.particle, baseStyle, {
-                    transform: [{ translateX: particle.x }, { translateY: ty1 }],
-                }]}
-            />
-            <Animated.View
-                style={[styles.particle, baseStyle, {
-                    transform: [{ translateX: particle.x }, { translateY: ty2 }],
-                }]}
-            />
+            <Animated.View style={[styles.particle, baseStyle, { transform: [{ translateX: particle.x }, { translateY: ty1 }] }]} />
+            <Animated.View style={[styles.particle, baseStyle, { transform: [{ translateX: particle.x }, { translateY: ty2 }] }]} />
         </React.Fragment>
     );
 }
@@ -174,16 +204,17 @@ export default function StarfieldBackground() {
             av.setValue(0);
 
             if (cfg.direction === 'float') {
-                // Ping-pong loop
                 return Animated.loop(
-                    Animated.timing(av, {
-                        toValue: 1,
-                        duration: p.speed,
-                        useNativeDriver: true,
-                    })
+                    Animated.timing(av, { toValue: 1, duration: p.speed, useNativeDriver: true })
+                );
+            } else if (cfg.direction === 'diagonal-left' || cfg.direction === 'diagonal-right' || cfg.shape === 'leaf') {
+                return Animated.loop(
+                    Animated.sequence([
+                        Animated.timing(av, { toValue: 1, duration: p.speed, useNativeDriver: true }),
+                        Animated.timing(av, { toValue: 0, duration: 0, useNativeDriver: true }),
+                    ])
                 );
             } else {
-                // Linear travel (up or down)
                 return Animated.loop(
                     Animated.timing(av, {
                         toValue: cfg.direction === 'down' ? H : -H,
