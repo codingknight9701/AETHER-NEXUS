@@ -202,7 +202,7 @@ export default function LoginScreen() {
 
     return (
         <LinearGradient
-            colors={['#0B0E14', '#0B0E14']}
+            colors={['#0D1117', '#111827']}
             style={styles.container}
         >
             <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: 14,
-        color: 'rgba(255,255,255,0.6)',
+        color: 'rgba(255,255,255,0.75)',
         textAlign: 'center',
         paddingHorizontal: 40,
         marginBottom: 40,
@@ -264,11 +264,11 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     dot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
         borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.3)',
+        borderColor: 'rgba(255,255,255,0.5)',
     },
     dotFilled: {
         backgroundColor: '#7D5FFF',
@@ -305,11 +305,16 @@ const styles = StyleSheet.create({
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: '#161B22',
+        backgroundColor: '#1C2333',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(125,95,255,0.2)',
+        borderColor: 'rgba(125,95,255,0.4)',
+        shadowColor: '#7D5FFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 4,
     },
     keypadButtonEmpty: {
         backgroundColor: 'transparent',

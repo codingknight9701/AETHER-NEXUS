@@ -114,12 +114,17 @@ const styles = StyleSheet.create({
         paddingBottom: 60,
     },
     glassCard: {
-        backgroundColor: '#161B22',
+        backgroundColor: '#1C2333',
         borderRadius: 20,
         padding: 24,
         marginTop: 20,
         borderWidth: 1,
-        borderColor: 'rgba(125, 95, 255, 0.2)',
+        borderColor: 'rgba(125, 95, 255, 0.35)',
+        shadowColor: '#7D5FFF',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 8,
     },
     dateText: {
         color: 'rgba(255, 255, 255, 0.6)',
@@ -145,7 +150,7 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
     journalText: {
-        color: '#fff',
+        color: 'rgba(255, 255, 255, 0.92)',
         fontSize: 22,
         lineHeight: 34,
         fontWeight: '300',

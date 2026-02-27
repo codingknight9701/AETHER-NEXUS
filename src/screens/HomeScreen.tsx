@@ -98,7 +98,7 @@ export default function HomeScreen() {
 
     return (
         <LinearGradient
-            colors={['#0B0E14', '#0B0E14']} // Deep Space Black
+            colors={['#0D1117', '#111827']}
             style={styles.container}
         >
             <StarfieldBackground />
@@ -168,14 +168,14 @@ const styles = StyleSheet.create({
         width: 70,
         height: 70,
         borderRadius: 35,
-        backgroundColor: '#7D5FFF', // Nebula Purple accent
+        backgroundColor: '#7D5FFF',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#7D5FFF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.7,
+        shadowRadius: 14,
+        elevation: 12,
     },
     fabText: {
         fontSize: 40,
@@ -184,18 +184,22 @@ const styles = StyleSheet.create({
         marginTop: -4, // Optical alignment
     },
     secondaryFab: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#161B22', // Dark Slate
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        backgroundColor: '#1C2333',
         borderWidth: 1,
-        borderColor: 'rgba(125,95,255,0.2)',
-        marginTop: 10,
+        borderColor: 'rgba(125,95,255,0.5)',
+        marginTop: 8,
+        shadowColor: '#7D5FFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     },
     secondaryFabText: {
         fontSize: 14,
-        color: 'rgba(255,255,255,0.7)',
-        fontWeight: '500',
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '600',
     },
     paletteFab: {
         backgroundColor: '#161B22',

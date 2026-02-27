@@ -106,12 +106,17 @@ const styles = StyleSheet.create({
         paddingBottom: 120, // Space for FABs
     },
     card: {
-        backgroundColor: '#161B22', // Dark Slate
-        borderRadius: 12,
+        backgroundColor: '#1C2333',
+        borderRadius: 16,
         padding: 16,
-        marginBottom: 12,
+        marginBottom: 14,
         borderWidth: 1,
-        borderColor: 'rgba(125, 95, 255, 0.1)',
+        borderColor: 'rgba(125, 95, 255, 0.35)',
+        shadowColor: '#7D5FFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -127,7 +132,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     excerpt: {
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: 'rgba(255, 255, 255, 0.8)',
         fontSize: 14,
         lineHeight: 20,
         marginBottom: 12,
@@ -138,17 +143,17 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     tagBadge: {
-        backgroundColor: 'rgba(125, 95, 255, 0.1)',
-        paddingHorizontal: 8,
+        backgroundColor: 'rgba(125, 95, 255, 0.2)',
+        paddingHorizontal: 10,
         paddingVertical: 4,
-        borderRadius: 4,
+        borderRadius: 6,
         borderWidth: 1,
-        borderColor: 'rgba(125, 95, 255, 0.3)',
+        borderColor: 'rgba(125, 95, 255, 0.5)',
     },
     tagText: {
-        color: '#7D5FFF',
+        color: '#A080FF',
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: '600',
     },
     emptyContainer: {
         flex: 1,
