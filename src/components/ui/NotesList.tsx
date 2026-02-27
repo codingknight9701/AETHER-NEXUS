@@ -82,13 +82,7 @@ export default function NotesList({ nodes, onNodePress, onLongPress, selectedTag
     };
 
     if (filteredNodes.length === 0) {
-        return (
-            <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                    {selectedTag ? `No notes found for #${selectedTag}` : 'Your vault is empty.'}
-                </Text>
-            </View>
-        );
+        return null;
     }
 
     return (
