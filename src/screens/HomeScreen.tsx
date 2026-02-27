@@ -108,23 +108,25 @@ export default function HomeScreen() {
             <StarfieldBackground />
 
             <View style={[styles.contentWrapper, { paddingTop: Math.max(insets.top, 10) }]}>
-                {/* Top bar: Search + Hamburger */}
-                <View style={styles.topBar}>
-                    <View style={styles.searchWrapper}>
-                        <SearchBar
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            onClear={() => setSearchQuery('')}
-                        />
+                {/* Top bar: Search + Hamburger — hidden when side menu is open */}
+                {!sideMenuVisible && (
+                    <View style={styles.topBar}>
+                        <View style={styles.searchWrapper}>
+                            <SearchBar
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                onClear={() => setSearchQuery('')}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.menuBtn, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}
+                            onPress={() => setSideMenuVisible(true)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={[styles.menuBtnText, { color: theme.textPrimary }]}>☰</Text>
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        style={[styles.menuBtn, { backgroundColor: theme.cardBg, borderColor: theme.accentDim }]}
-                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSideMenuVisible(true); }}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={[styles.menuBtnText, { color: theme.textPrimary }]}>☰</Text>
-                    </TouchableOpacity>
-                </View>
+                )}
 
                 <NotesList
                     nodes={allNotes}

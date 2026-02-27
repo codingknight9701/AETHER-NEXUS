@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Animated,
-    Dimensions, ScrollView, Platform,
+    Dimensions, ScrollView, Platform, Pressable,
 } from 'react-native';
 import { useThemeStore } from '../../store/useThemeStore';
 import { THEMES, THEME_ORDER } from '../../utils/themes';
-import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MENU_WIDTH = Math.min(310, SCREEN_WIDTH * 0.80);
+const MENU_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
 
 interface SideMenuProps {
     visible: boolean;
@@ -16,6 +15,8 @@ interface SideMenuProps {
 }
 
 export default function SideMenu({ visible, onClose }: SideMenuProps) {
+    // Use useNativeDriver=false on web — native driver breaks hit-testing after transform
+    const useNative = Platform.OS !== 'web';
     const slideAnim = useRef(new Animated.Value(MENU_WIDTH)).current;
     const overlayAnim = useRef(new Animated.Value(0)).current;
     const [isMounted, setIsMounted] = useState(false);
@@ -25,17 +26,20 @@ export default function SideMenu({ visible, onClose }: SideMenuProps) {
     useEffect(() => {
         if (visible) {
             setIsMounted(true);
+            // Lock body scroll on web
+            if (Platform.OS === 'web') {
+                (document.body.style as any).overflow = 'hidden';
+            }
             Animated.parallel([
-                Animated.spring(slideAnim, {
+                Animated.timing(slideAnim, {
                     toValue: 0,
-                    useNativeDriver: true,
-                    tension: 65,
-                    friction: 11,
+                    duration: 280,
+                    useNativeDriver: useNative,
                 }),
                 Animated.timing(overlayAnim, {
                     toValue: 1,
-                    duration: 250,
-                    useNativeDriver: true,
+                    duration: 220,
+                    useNativeDriver: useNative,
                 }),
             ]).start();
         } else {
@@ -43,91 +47,121 @@ export default function SideMenu({ visible, onClose }: SideMenuProps) {
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: MENU_WIDTH,
-                    duration: 280,
-                    useNativeDriver: true,
+                    duration: 260,
+                    useNativeDriver: useNative,
                 }),
                 Animated.timing(overlayAnim, {
                     toValue: 0,
-                    duration: 220,
-                    useNativeDriver: true,
+                    duration: 200,
+                    useNativeDriver: useNative,
                 }),
-            ]).start(() => setIsMounted(false));
+            ]).start(() => {
+                setIsMounted(false);
+                // Unlock body scroll on web
+                if (Platform.OS === 'web') {
+                    (document.body.style as any).overflow = '';
+                }
+            });
         }
     }, [visible]);
 
-    const handleThemeSelect = (id: string) => {
-        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setTheme(id);
-    };
-
     if (!isMounted) return null;
 
+    // Fixed position on web to avoid page layout issues
+    const outerStyle: any = Platform.OS === 'web'
+        ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }
+        : StyleSheet.absoluteFill;
+
+    const panelStyle: any = Platform.OS === 'web'
+        ? { position: 'fixed', top: 0, right: 0, bottom: 0, width: MENU_WIDTH, zIndex: 10000 }
+        : styles.panelNative;
+
     return (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            {/* Overlay — only covers the left portion, NOT the panel */}
+        <View style={[outerStyle, { pointerEvents: 'box-none' } as any]}>
+            {/* Dark semi-transparent overlay — only covers the area LEFT of the panel */}
             <Animated.View
-                style={[
-                    styles.overlay,
-                    { opacity: overlayAnim, right: MENU_WIDTH },
-                ]}
+                style={{
+                    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+                    top: 0, left: 0, bottom: 0,
+                    right: MENU_WIDTH,
+                    backgroundColor: 'rgba(0,0,0,0.65)',
+                    opacity: overlayAnim,
+                } as any}
                 pointerEvents={visible ? 'auto' : 'none'}
             >
-                <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
             </Animated.View>
 
-            {/* Panel — slides in from right */}
+            {/* Sliding panel */}
             <Animated.View
                 style={[
-                    styles.panel,
+                    panelStyle,
                     {
                         backgroundColor: theme.cardBg,
-                        borderColor: theme.accentDim,
+                        borderLeftWidth: 1,
+                        borderLeftColor: theme.accentDim,
                         transform: [{ translateX: slideAnim }],
                     },
+                    Platform.OS === 'web' && ({
+                        boxShadow: '-6px 0 32px rgba(0,0,0,0.7)',
+                    } as any),
                 ]}
             >
                 {/* Header */}
-                <View style={[styles.panelHeader, { borderBottomColor: theme.accentDim }]}>
-                    <Text style={[styles.panelTitle, { color: theme.textPrimary }]}>⚙ Settings</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+                <View style={[styles.header, { borderBottomColor: theme.accentDim }]}>
+                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>⚙ Settings</Text>
+                    <Pressable
+                        style={[styles.closeBtn, { backgroundColor: `${theme.accent}22` }]}
+                        onPress={onClose}
+                    >
                         <Text style={[styles.closeBtnText, { color: theme.accent }]}>✕</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                 </View>
 
-                <ScrollView style={styles.menuContent} showsVerticalScrollIndicator={false}>
-
-                    {/* ── THEMES ROW (collapsible) ── */}
-                    <TouchableOpacity
-                        style={[styles.menuRow, { borderColor: theme.accentDim }]}
+                {/* Scrollable menu rows — stops scrolling the whole page */}
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    scrollEventThrottle={16}
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* ── THEMES ROW ── */}
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.menuRow,
+                            { borderColor: theme.accentDim, opacity: pressed ? 0.7 : 1 },
+                        ]}
                         onPress={() => setThemesOpen(prev => !prev)}
-                        activeOpacity={0.7}
                     >
-                        <Text style={styles.menuRowIcon}>🎨</Text>
+                        <Text style={styles.menuRowEmoji}>🎨</Text>
                         <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>Themes</Text>
-                        <Text style={[styles.menuRowChevron, { color: theme.textMuted }]}>
+                        <Text style={[styles.chevron, { color: theme.textMuted }]}>
                             {themesOpen ? '▲' : '▼'}
                         </Text>
-                    </TouchableOpacity>
+                    </Pressable>
 
-                    {/* Theme cards (only shown when expanded) */}
+                    {/* Theme cards — shown when expanded */}
                     {themesOpen && (
-                        <View style={styles.themesContainer}>
+                        <View style={styles.themeList}>
                             {THEME_ORDER.map((id) => {
                                 const t = THEMES[id];
                                 const isActive = themeId === id;
                                 return (
-                                    <TouchableOpacity
+                                    <Pressable
                                         key={id}
-                                        style={[
+                                        style={({ pressed }) => ([
                                             styles.themeCard,
                                             {
                                                 backgroundColor: isActive ? `${t.accent}22` : theme.surfaceBg,
-                                                borderColor: isActive ? t.accent : theme.accentDim,
+                                                borderColor: isActive ? t.accent : `${theme.accent}30`,
                                                 borderWidth: isActive ? 2 : 1,
+                                                opacity: pressed ? 0.75 : 1,
                                             },
-                                        ]}
-                                        onPress={() => handleThemeSelect(id)}
-                                        activeOpacity={0.7}
+                                        ])}
+                                        onPress={() => setTheme(id)}
                                     >
                                         <View style={[styles.accentDot, { backgroundColor: t.accent }]} />
                                         <View style={{ flex: 1 }}>
@@ -140,27 +174,23 @@ export default function SideMenu({ visible, onClose }: SideMenuProps) {
                                         </View>
                                         {isActive && (
                                             <View style={[styles.activeBadge, { backgroundColor: t.accent }]}>
-                                                <Text style={styles.activeBadgeText}>✓</Text>
+                                                <Text style={styles.checkMark}>✓</Text>
                                             </View>
                                         )}
-                                    </TouchableOpacity>
+                                    </Pressable>
                                 );
                             })}
                         </View>
                     )}
 
                     {/* ── REMINDERS ROW ── */}
-                    <TouchableOpacity
-                        style={[styles.menuRow, { borderColor: theme.accentDim, marginTop: 6 }]}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.menuRowIcon}>🔔</Text>
+                    <View style={[styles.menuRow, { borderColor: theme.accentDim, opacity: 0.5 }]}>
+                        <Text style={styles.menuRowEmoji}>🔔</Text>
                         <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>Reminders</Text>
-                        <Text style={[styles.menuRowBadge, { backgroundColor: theme.accentDim, color: theme.textMuted }]}>
+                        <Text style={[styles.comingBadge, { backgroundColor: `${theme.accent}33`, color: theme.accentLight }]}>
                             Soon
                         </Text>
-                    </TouchableOpacity>
-
+                    </View>
                 </ScrollView>
             </Animated.View>
         </View>
@@ -168,61 +198,40 @@ export default function SideMenu({ visible, onClose }: SideMenuProps) {
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    panel: {
+    panelNative: {
         position: 'absolute',
         top: 0,
         right: 0,
         bottom: 0,
         width: MENU_WIDTH,
-        borderLeftWidth: 1,
-        zIndex: 100,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: -4, height: 0 },
-                shadowOpacity: 0.5,
-                shadowRadius: 20,
-            },
-            android: { elevation: 20 },
-            web: { boxShadow: '-8px 0 40px rgba(0,0,0,0.6)' },
-        }),
     },
-    panelHeader: {
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 56,
+        paddingTop: 52,
         paddingHorizontal: 20,
-        paddingBottom: 16,
+        paddingBottom: 14,
         borderBottomWidth: 1,
     },
-    panelTitle: {
+    headerTitle: {
         fontSize: 18,
         fontWeight: '700',
-        letterSpacing: 0.5,
     },
     closeBtn: {
-        width: 36,
-        height: 36,
+        width: 38,
+        height: 38,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 10,
     },
     closeBtnText: {
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: '700',
     },
-    menuContent: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 12,
+    scrollContent: {
+        padding: 16,
+        paddingBottom: 40,
     },
     menuRow: {
         flexDirection: 'row',
@@ -231,10 +240,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderRadius: 14,
         borderWidth: 1,
-        marginBottom: 8,
+        marginBottom: 10,
     },
-    menuRowIcon: {
-        fontSize: 20,
+    menuRowEmoji: {
+        fontSize: 18,
         marginRight: 12,
     },
     menuRowLabel: {
@@ -242,11 +251,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
-    menuRowChevron: {
-        fontSize: 12,
-        marginLeft: 8,
+    chevron: {
+        fontSize: 13,
     },
-    menuRowBadge: {
+    comingBadge: {
         fontSize: 10,
         fontWeight: '700',
         paddingHorizontal: 8,
@@ -254,30 +262,29 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         overflow: 'hidden',
     },
-    themesContainer: {
-        paddingHorizontal: 4,
-        marginBottom: 8,
+    themeList: {
+        marginBottom: 10,
+        gap: 8,
     },
     themeCard: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,
         borderRadius: 12,
-        marginBottom: 8,
-        gap: 12,
+        gap: 10,
     },
     accentDot: {
-        width: 14,
-        height: 14,
-        borderRadius: 7,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
     },
     themeName: {
         fontSize: 14,
         fontWeight: '600',
-        marginBottom: 2,
     },
     themeDesc: {
-        fontSize: 12,
+        fontSize: 11,
+        marginTop: 2,
     },
     activeBadge: {
         width: 22,
@@ -285,9 +292,8 @@ const styles = StyleSheet.create({
         borderRadius: 11,
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: 8,
     },
-    activeBadgeText: {
+    checkMark: {
         color: '#fff',
         fontSize: 12,
         fontWeight: '700',
