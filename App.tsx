@@ -3,6 +3,7 @@ import { View, StatusBar, StyleSheet, Animated, LogBox, Text, Platform } from 'r
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useJournalStore } from './src/store/useJournalStore';
 import { useThemeStore } from './src/store/useThemeStore';
+import { useAuthStore } from './src/store/useAuthStore';
 import { initAudio, playBackgroundMusic } from './src/utils/audio';
 import { initVault } from './src/utils/vault';
 
@@ -66,6 +67,7 @@ import LoginScreen from './src/screens/LoginScreen';
 export default function App() {
   const { currentRoute, hydrate, isHydrated, isLocked, lock } = useJournalStore();
   const { hydrateTheme } = useThemeStore();
+  const { init: initAuth } = useAuthStore();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
   const resetInactivityTimer = () => {
@@ -108,7 +110,9 @@ export default function App() {
       await initAudio();
       playBackgroundMusic();
     };
+    const unsubscribeAuth = initAuth(); // Start Firebase auth listener
     setupApp();
+    return () => unsubscribeAuth();
   }, []);
 
   const renderScreen = () => {

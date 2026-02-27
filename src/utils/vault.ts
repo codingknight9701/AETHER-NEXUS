@@ -1,10 +1,21 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+import { auth } from './firebase';
+import {
+    saveCloudThought,
+    readCloudThought,
+    readAllCloudThoughts,
+    deleteCloudThought,
+    archiveCloudThought,
+} from './cloudVault';
 
 const VAULT_DIR = Platform.OS === 'web' ? '' : `${FileSystem.documentDirectory}AetherVault/`;
 const THOUGHTS_DIR = Platform.OS === 'web' ? '' : `${VAULT_DIR}thoughts/`;
 
 const WEB_STORAGE_KEY = 'aether_thoughts_web';
+
+/** True when a Firebase user is signed in — use cloud storage */
+const isCloudEnabled = () => !!auth.currentUser;
 
 // Helper to get web data
 const getWebData = (): Record<string, string> => {
@@ -89,6 +100,12 @@ const seedVault = async () => {
 };
 
 export const saveThought = async (title: string, markdownContent: string, originalId?: string, isArchived: boolean = false) => {
+    // ── Cloud path ──────────────────────────────────────────────────────────
+    if (Platform.OS === 'web' && isCloudEnabled()) {
+        return saveCloudThought(title, markdownContent, originalId);
+    }
+
+    // ── Local path ──────────────────────────────────────────────────────────
     // Preserve the original text case by encoding spaces, but retaining casing where possible
     const filename = `${title.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}.md`;
 
@@ -108,7 +125,6 @@ export const saveThought = async (title: string, markdownContent: string, origin
 
     const metadataBlock = `<!--METADATA:${JSON.stringify({ createdAt, updatedAt, isArchived })}-->\n`;
 
-    // Automatically ensure the content starts with an H1 header of the exact title if not present
     let finalContent = markdownContent;
     if (!markdownContent.split('\n')[0].startsWith('# ')) {
         finalContent = `# ${title}\n\n${markdownContent}`;
@@ -129,27 +145,27 @@ export const saveThought = async (title: string, markdownContent: string, origin
 };
 
 export const deleteThought = async (id: string) => {
+    if (Platform.OS === 'web' && isCloudEnabled()) {
+        return deleteCloudThought(id);
+    }
     if (Platform.OS === 'web') {
         const data = getWebData();
-        if (data[id]) {
-            delete data[id];
-            saveWebData(data);
-        }
+        if (data[id]) { delete data[id]; saveWebData(data); }
         return;
     }
-
     try {
         const uri = `${THOUGHTS_DIR}${id}`;
         await FileSystem.deleteAsync(uri, { idempotent: true });
-    } catch (e) {
-        console.warn('Delete error', e);
-    }
+    } catch (e) { console.warn('Delete error', e); }
 };
 
 export const archiveThought = async (id: string) => {
+    if (Platform.OS === 'web' && isCloudEnabled()) {
+        return archiveCloudThought(id);
+    }
     const note = await readThought(id);
     if (!note) return;
-    await saveThought(note.title, note.content, id, true);
+    await saveThought(note.title ?? 'Untitled', note.content, id, true);
 };
 
 export const parseLinks = (content: string): string[] => {
@@ -166,6 +182,10 @@ export const parseLinks = (content: string): string[] => {
 };
 
 export const readThought = async (id: string) => {
+    // Cloud path
+    if (Platform.OS === 'web' && isCloudEnabled()) {
+        return readCloudThought(id);
+    }
     try {
         let content = '';
         if (Platform.OS === 'web') {
@@ -217,6 +237,10 @@ export const readThought = async (id: string) => {
 };
 
 export const readAllThoughts = async (includeArchived: boolean = false) => {
+    // Cloud path
+    if (Platform.OS === 'web' && isCloudEnabled()) {
+        return readAllCloudThoughts(includeArchived);
+    }
     if (Platform.OS === 'web') {
         const data = getWebData();
         const allNotes = Object.keys(data).map(filename => {

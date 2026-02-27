@@ -6,6 +6,7 @@ import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useJournalStore } from '../store/useJournalStore';
 import { useThemeStore } from '../store/useThemeStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { isWebAuthnSupported, registerWebAuthn, authenticateWebAuthn } from '../utils/webAuthn';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +18,7 @@ export default function LoginScreen() {
 
     const { hashedPin, setHashedPin, unlock, webAuthnCredentialId, setWebAuthnCredentialId } = useJournalStore();
     const { theme } = useThemeStore();
+    const { user, signInWithGoogle, signOutUser } = useAuthStore();
     const insets = useSafeAreaInsets();
 
     useEffect(() => {
@@ -237,6 +239,39 @@ export default function LoginScreen() {
                 <View style={styles.keypadContainer}>
                     {renderKeypadMenu()}
                 </View>
+
+                {/* ── Google Account Section ── */}
+                <View style={[styles.googleSection, { borderTopColor: theme.accentDim }]}>
+                    {user ? (
+                        <View style={styles.googleRow}>
+                            <View style={[styles.googleAvatar, { backgroundColor: theme.accent }]}>
+                                <Text style={styles.googleAvatarLetter}>
+                                    {(user.displayName || user.email || 'G')[0].toUpperCase()}
+                                </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.googleName, { color: theme.textPrimary }]} numberOfLines={1}>
+                                    {user.displayName || user.email}
+                                </Text>
+                                <Text style={[styles.googleSub, { color: theme.textMuted }]}>Notes synced to cloud ☁</Text>
+                            </View>
+                            <TouchableOpacity onPress={signOutUser} style={[styles.signOutBtn, { borderColor: theme.accentDim }]}>
+                                <Text style={[styles.signOutText, { color: theme.textMuted }]}>Sign out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={[styles.googleSignInBtn, { backgroundColor: theme.cardBg, borderColor: theme.accent }]}
+                            onPress={signInWithGoogle}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.googleIcon}>G</Text>
+                            <Text style={[styles.googleSignInText, { color: theme.textPrimary }]}>
+                                Sign in with Google for cloud sync
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
         </LinearGradient>
     );
@@ -335,5 +370,66 @@ const styles = StyleSheet.create({
         fontSize: 28,
         color: '#ffffff',
         fontWeight: '400',
-    }
+    },
+    googleSection: {
+        width: '100%',
+        paddingHorizontal: 24,
+        paddingTop: 18,
+        paddingBottom: 10,
+        borderTopWidth: 1,
+        maxWidth: 400,
+    },
+    googleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    googleAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    googleAvatarLetter: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    googleName: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    googleSub: {
+        fontSize: 11,
+        marginTop: 2,
+    },
+    signOutBtn: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    signOutText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    googleSignInBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 13,
+        paddingHorizontal: 18,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        gap: 12,
+    },
+    googleIcon: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#4285F4',
+    },
+    googleSignInText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });
