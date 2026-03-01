@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
@@ -9,27 +10,46 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Aether Nexus</title>
+    <!-- Deployment Version: ROOT_V4 -->
+
     <!-- The `react-native-web` recommended style reset -->
     <style id="expo-reset">
-      html, body { height: 100%; }
-      body { overflow: hidden; }
-      #root { display: flex; height: 100%; flex: 1; }
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            overflow: hidden;
+        }
+
+        #root {
+            display: flex;
+            height: 100%;
+            flex: 1;
+        }
     </style>
     <script>
-      // Unregister old service workers to force fresh loads on mobile
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister();
-            console.log('SW unregistered for cache bust');
-          }
-        });
-      }
+        // Force refresh if version mismatch is detected in memory
+        const CURRENT_VERSION = 'V4';
+        if (localStorage.getItem('app_version') !== CURRENT_VERSION) {
+            localStorage.setItem('app_version', CURRENT_VERSION);
+            // Clear caches and reload
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    for (let r of regs) r.unregister();
+                });
+            }
+            console.log('New version detected. Refreshing...');
+            window.location.reload(true);
+        }
     </script>
-  <link rel="icon" href="/AETHER-NEXUS/favicon.ico" /></head>
-  <body>
+<link rel="icon" href="/favicon.ico" /></head>
+
+<body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-  <script src="/AETHER-NEXUS/_expo/static/js/web/AppEntry-7564a8d90760ab1732fbd8dcb34b40d2.js" defer></script>
+<script src="/_expo/static/js/web/AppEntry-e7022df35a25eedb4e17348effde2f44.js" defer></script>
 </body>
+
 </html>
